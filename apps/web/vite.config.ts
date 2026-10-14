@@ -10,9 +10,6 @@ export default defineConfig({
         runes: ({ filename }) =>
           filename.split(/[/\\]/).includes("node_modules") ? undefined : true,
       },
-      paths: {
-        base: "/Watchtower",
-      },
       adapter: adapter({
         fallback: "index.html",
       }),
