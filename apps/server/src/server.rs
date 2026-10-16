@@ -1,6 +1,5 @@
-use crate::config::Config;
+use crate::{config::Config, request::Request};
 use std::{io::prelude::*, net::TcpListener};
-
 pub struct Server {}
 
 impl Server {
@@ -14,7 +13,7 @@ impl Server {
     for stream in listener.incoming() {
       let mut stream = stream.unwrap();
 
-      println!("Connection established");
+      Request::new(&stream);
 
       stream
         .write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes())
