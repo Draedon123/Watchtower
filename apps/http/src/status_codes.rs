@@ -6,6 +6,22 @@ macro_rules! define_status_codes {
       Unknown(u16),
     }
 
+    impl StatusCode {
+      fn get_code(&self) -> u16 {
+        match *self {
+          $(Self::$variant => $code,)+
+          Self::Unknown(code) => code,
+        }
+      }
+
+      fn get_message(&self) -> &str {
+        match *self {
+          $(Self::$variant => $message,)+
+          Self::Unknown(_) => "Unknown Status Code",
+        }
+      }
+    }
+
     impl From<u16> for StatusCode {
       fn from(code: u16) -> Self {
         match code {
@@ -17,10 +33,7 @@ macro_rules! define_status_codes {
 
     impl std::fmt::Display for StatusCode {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-          $(Self::$variant => f.write_fmt(format_args!("{} {}", $code, $message)),)+
-          Self::Unknown(code) => f.write_fmt(format_args!("{} Unknown Status Code", code))
-        }
+        f.write_fmt(format_args!("{} {}", self.get_code(), self.get_message()))
       }
     }
   };
