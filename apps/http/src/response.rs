@@ -3,7 +3,8 @@ use crate::{header::Headers, status_codes::StatusCode};
 pub struct Response {
   pub headers: Headers,
   pub status_code: StatusCode,
-  pub content: String,
+
+  content: String,
 }
 
 impl Response {
@@ -24,6 +25,10 @@ impl Response {
     self
       .headers
       .set_header("Content-Type", "text/plain; charset=utf-8");
+  }
+
+  pub fn get_content(&self) -> &str {
+    &self.content
   }
 }
 
