@@ -3,7 +3,7 @@ use server::Server;
 use std::env;
 
 mod config;
-mod request;
+mod http;
 mod server;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,4 +1,4 @@
-use crate::{config::Config, request::Request};
+use crate::{config::Config, http::request::Request};
 use std::{io::prelude::*, net::TcpListener};
 pub struct Server {}
 
