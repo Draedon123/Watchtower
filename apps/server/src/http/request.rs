@@ -3,19 +3,23 @@ use std::{
   net::TcpStream,
 };
 
+use crate::http::header::Headers;
 use crate::http::method::HTTPMethod;
 
 pub struct Request {
   method: HTTPMethod,
   path: String,
   content: Option<String>,
+  headers: Headers,
 }
 
 impl Request {
   pub fn new(stream: &TcpStream) -> Request {
+    let mut request = Request::empty();
     let mut buffer_reader = BufReader::new(stream);
     let mut lines = Vec::<String>::new();
 
+    let mut i = 1;
     loop {
       let mut line = String::new();
 
@@ -25,25 +29,27 @@ impl Request {
         break;
       }
 
+      if i != 1 {
+        request.headers.add_header_line(&line);
+      };
+
       lines.push(line.trim().to_string());
+      i += 1;
     }
 
     // println!("{:#?}", lines);
-
-    let mut request = Request::empty();
 
     let start_line: Vec<_> = lines[0].split(" ").collect();
 
     request.method = HTTPMethod::from(start_line[0]);
     request.path = start_line[1].to_string();
 
-    let content_length = match lines.iter().find(|line| line.starts_with("Content-Length")) {
-      Some(header) => header.split(":").collect::<Vec<_>>()[1]
-        .trim()
-        .parse::<usize>()
-        .unwrap(),
-      None => 0,
-    };
+    let content_length = request
+      .headers
+      .get_header("Content-Length")
+      .unwrap_or(&String::from("0"))
+      .parse::<usize>()
+      .unwrap_or(0);
 
     if content_length > 0 {
       let mut content = vec![0; content_length];
@@ -55,6 +61,7 @@ impl Request {
 
     println!("Received {} request for {}", request.method, request.path);
     println!("Body is {} bytes: {:#?}", content_length, request.content);
+    println!("Headers:\n{}", request.headers);
 
     request
   }
@@ -64,6 +71,7 @@ impl Request {
       method: HTTPMethod::Get(),
       path: String::new(),
       content: None,
+      headers: Headers::new(),
     }
   }
 }
