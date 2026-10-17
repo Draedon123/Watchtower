@@ -7,14 +7,14 @@ macro_rules! define_status_codes {
     }
 
     impl StatusCode {
-      fn get_code(&self) -> u16 {
+      pub fn get_code(&self) -> u16 {
         match *self {
           $(Self::$variant => $code,)+
           Self::Unknown(code) => code,
         }
       }
 
-      fn get_message(&self) -> &str {
+      pub fn get_message(&self) -> &str {
         match *self {
           $(Self::$variant => $message,)+
           Self::Unknown(_) => "Unknown Status Code",

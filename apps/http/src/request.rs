@@ -3,20 +3,22 @@ use std::{
   net::TcpStream,
 };
 
-use crate::header::Headers;
 use crate::method::HTTPMethod;
+use crate::{header::Headers, response::Response};
 
 pub struct Request {
-  method: HTTPMethod,
-  path: String,
-  content: Option<String>,
-  headers: Headers,
+  pub method: HTTPMethod,
+  pub path: String,
+  pub content: Option<String>,
+  pub headers: Headers,
+
+  stream: Option<TcpStream>,
 }
 
 impl Request {
-  pub fn new(stream: &TcpStream) -> Request {
+  pub fn new(stream: TcpStream) -> Request {
     let mut request = Request::empty();
-    let mut buffer_reader = BufReader::new(stream);
+    let mut buffer_reader = BufReader::new(&stream);
     let mut lines = Vec::<String>::new();
 
     let mut i = 1;
@@ -36,8 +38,6 @@ impl Request {
       lines.push(line.trim().to_string());
       i += 1;
     }
-
-    // println!("{:#?}", lines);
 
     let start_line: Vec<_> = lines[0].split(" ").collect();
 
@@ -59,10 +59,7 @@ impl Request {
       request.content = Some(String::from_utf8(content).unwrap());
     }
 
-    println!("Received {} request for {}", request.method, request.path);
-    println!("Body is {} bytes: {:#?}", content_length, request.content);
-    println!("Headers:\n{}", request.headers);
-
+    request.stream = Some(stream);
     request
   }
 
@@ -72,6 +69,16 @@ impl Request {
       path: String::new(),
       content: None,
       headers: Headers::new(),
+      stream: None,
     }
+  }
+
+  pub fn respond(&mut self, response: &Response) {
+    self
+      .stream
+      .as_mut()
+      .unwrap()
+      .write_all(response.to_string().as_bytes())
+      .unwrap();
   }
 }

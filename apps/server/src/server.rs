@@ -1,6 +1,6 @@
 use crate::config::Config;
-use http::request::Request;
-use std::{io::prelude::*, net::TcpListener};
+use http::{request::Request, response::Response};
+use std::net::TcpListener;
 pub struct Server {}
 
 impl Server {
@@ -12,13 +12,15 @@ impl Server {
     println!("Opened server on {server_address}");
 
     for stream in listener.incoming() {
-      let mut stream = stream.unwrap();
+      let stream = stream.unwrap();
 
-      Request::new(&stream);
+      let mut request = Request::new(stream);
+      let mut response = Response::new();
 
-      stream
-        .write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes())
-        .unwrap();
+      response.set_content(String::from("Hello, World!"));
+      response.status_code = http::status_codes::StatusCode::Status200;
+
+      request.respond(&response);
     }
 
     Ok(Server {})
