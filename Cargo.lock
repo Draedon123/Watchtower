@@ -3,9 +3,16 @@
 version = 4
 
 [[package]]
+name = "http"
+version = "0.1.0"
+
+[[package]]
 name = "watchtower-agent"
 version = "0.1.0"
 
 [[package]]
 name = "watchtower-server"
 version = "0.1.0"
+dependencies = [
+ "http",
+]

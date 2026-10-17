@@ -3,8 +3,8 @@ use std::{
   net::TcpStream,
 };
 
-use crate::http::header::Headers;
-use crate::http::method::HTTPMethod;
+use crate::header::Headers;
+use crate::method::HTTPMethod;
 
 pub struct Request {
   method: HTTPMethod,
