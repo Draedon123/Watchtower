@@ -9,14 +9,24 @@ use crate::{header::Headers, response::Response};
 pub struct Request {
   pub method: HTTPMethod,
   pub path: String,
-  pub content: Option<String>,
   pub headers: Headers,
 
+  content: String,
   stream: Option<TcpStream>,
 }
 
 impl Request {
-  pub fn new(stream: TcpStream) -> Request {
+  pub fn new(address: &str) -> Request {
+    Request {
+      method: HTTPMethod::Get(),
+      path: String::new(),
+      content: String::new(),
+      headers: Headers::new(),
+      stream: Some(TcpStream::connect(address).unwrap()),
+    }
+  }
+
+  pub fn read_from_stream(stream: TcpStream) -> Request {
     let mut request = Request::empty();
     let mut buffer_reader = BufReader::new(&stream);
     let mut lines = Vec::<String>::new();
@@ -56,7 +66,7 @@ impl Request {
 
       buffer_reader.read_exact(&mut content).unwrap();
 
-      request.content = Some(String::from_utf8(content).unwrap());
+      request.content = String::from_utf8(content).unwrap();
     }
 
     request.stream = Some(stream);
@@ -67,10 +77,25 @@ impl Request {
     Request {
       method: HTTPMethod::Get(),
       path: String::new(),
-      content: None,
+      content: String::new(),
       headers: Headers::new(),
       stream: None,
     }
+  }
+
+  pub fn set_content(&mut self, content: &str) {
+    self.content = content.to_string();
+
+    self
+      .headers
+      .set_header("Content-Length", &self.content.len().to_string());
+    self
+      .headers
+      .set_header("Content-Type", "text/plain; charset=utf-8");
+  }
+
+  pub fn get_content(&self) -> &str {
+    &self.content
   }
 
   pub fn respond(&mut self, response: &Response) {
@@ -79,6 +104,22 @@ impl Request {
       .as_mut()
       .unwrap()
       .write_all(response.to_string().as_bytes())
+      .unwrap();
+  }
+
+  pub fn send(&mut self) {
+    let content = format!(
+      "{} {} HTTP/1.1\r\n{}\r\n{}",
+      self.method, self.path, self.headers, self.content
+    );
+
+    println!("{}", content);
+
+    self
+      .stream
+      .as_mut()
+      .unwrap()
+      .write_all(content.as_bytes())
       .unwrap();
   }
 }

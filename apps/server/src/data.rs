@@ -103,4 +103,15 @@ impl Data {
   pub fn list_machines(&self) -> Vec<&String> {
     self.machine_data.keys().collect()
   }
+
+  pub fn register_machine(&mut self, machine: &str) -> bool {
+    let machine = machine.to_string();
+
+    if !self.machine_data.contains_key(&machine) {
+      self.machine_data.insert(machine, HashMap::new());
+      true
+    } else {
+      false
+    }
+  }
 }

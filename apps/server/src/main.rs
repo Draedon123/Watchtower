@@ -79,7 +79,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     },
   );
 
-  let data_writer = data.clone();
+  let data_writer_1 = data.clone();
+  server.route(
+    "/set/[machine]",
+    HTTPMethod::Post(),
+    move |request, response| {
+      response
+        .headers
+        .set_header("Access-Control-Allow-Origin", "*");
+
+      let machine = request.slugs.get("machine").unwrap();
+
+      let mut data = data_writer_1.write().unwrap();
+
+      response.status_code = if data.register_machine(machine) {
+        StatusCode::Status200
+      } else {
+        StatusCode::Status400
+      };
+
+      request.respond(response);
+    },
+  );
+
+  let data_writer_2 = data.clone();
   server.route(
     "/set/[machine]/[key]/[value]",
     HTTPMethod::Post(),
@@ -92,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let key = request.slugs.get("key").unwrap();
       let value = request.slugs.get("value").unwrap();
 
-      let mut data = data_writer.write().unwrap();
+      let mut data = data_writer_2.write().unwrap();
 
       match value.parse::<f32>() {
         Ok(value) => {

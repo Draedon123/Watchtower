@@ -93,11 +93,13 @@ impl<'a> Server<'a> {
     for stream in listener.incoming() {
       let stream = stream.unwrap();
 
-      let mut http_request = Request::new(stream);
+      let mut http_request = Request::read_from_stream(stream);
 
       let mut request_slugs: HashMap<String, String> = HashMap::new();
       let request_method = http_request.method.clone();
       let request_path = http_request.path.clone();
+
+      println!("Received {} request for {}", request_method, request_path);
 
       let route = self.routes.iter().find(|route| {
         if route.method != request_method {
