@@ -19,53 +19,69 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut server = Server::new(&config).unwrap();
   let data = Arc::new(RwLock::new(Data::new(10)));
 
-  let mut data_writer = data.write().unwrap();
-
-  data_writer.set_data("test-machine", "cputemp", DataType::F32Value(45.0));
-  data_writer.set_data("test-machine", "cpufreq", DataType::F32Value(1300000000.0));
-
-  drop(data_writer);
-
   server.route("/", HTTPMethod::Get(), |request, response| {
     response.status_code = StatusCode::Status200;
     request.respond(response);
   });
 
-  let data_get = data.clone();
+  let data_reader = data.clone();
   server.route(
-    "/get/[key]",
+    "/get/[machine]/[key]",
     HTTPMethod::Post(),
     move |request, response| {
       response
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
 
-      match &request.http_request.content {
-        Some(content) => {
-          let machine = content.as_str();
-          let all_data = data_get.read().unwrap();
-          let recent_data =
-            all_data.get_machine_data_recent(machine, request.slugs.get("key").unwrap());
+      let machine = request.slugs.get("machine").unwrap();
+      let key = request.slugs.get("key").unwrap();
 
-          match recent_data {
-            Ok(data_entry) => {
-              response.set_content(&data_entry.data.to_string());
-              response.status_code = StatusCode::Status200;
-            }
-            Err(error) => {
-              response.status_code = StatusCode::Status400;
-              response.set_content(&format!("{}", error));
-            }
-          };
+      let data = data_reader.read().unwrap();
+      let recent_data = data.get_machine_data_recent(machine, key);
 
-          request.respond(response);
+      match recent_data {
+        Ok(data_entry) => {
+          response.set_content(&data_entry.data.to_string());
+          response.status_code = StatusCode::Status200;
         }
-        None => {
+        Err(error) => {
           response.status_code = StatusCode::Status400;
-          response.set_content("No machine specified");
-          request.respond(response);
+          response.set_content(&format!("{}", error));
         }
-      }
+      };
+
+      request.respond(response);
+    },
+  );
+
+  let data_writer = data.clone();
+  server.route(
+    "/set/[machine]/[key]/[value]",
+    HTTPMethod::Post(),
+    move |request, response| {
+      response
+        .headers
+        .set_header("Access-Control-Allow-Origin", "*");
+
+      let machine = request.slugs.get("machine").unwrap();
+      let key = request.slugs.get("key").unwrap();
+      let value = request.slugs.get("value").unwrap();
+
+      let mut data = data_writer.write().unwrap();
+
+      match value.parse::<f32>() {
+        Ok(value) => {
+          response.status_code = StatusCode::Status200;
+
+          data.set_data(machine, key, DataType::F32Value(value));
+        }
+        Err(_) => {
+          response.status_code = StatusCode::Status400;
+          response.set_content("Invalid value");
+        }
+      };
+
+      request.respond(&response);
     },
   );
 
