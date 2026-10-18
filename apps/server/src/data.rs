@@ -99,4 +99,8 @@ impl Data {
         .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?,
     )
   }
+
+  pub fn list_machines(&self) -> Vec<&String> {
+    self.machine_data.keys().collect()
+  }
 }
