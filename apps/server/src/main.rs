@@ -9,6 +9,7 @@ use std::{
 mod config;
 mod server;
 
+use http::method::HTTPMethod;
 use http::status_codes::StatusCode;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   thread::spawn(move || {
     let mut server = Server::new(&config).unwrap();
 
-    server.post("/temp", |mut request, mut response| {
+    server.route("/temp", HTTPMethod::Post(), |mut request, mut response| {
       response.status_code = StatusCode::Status200;
       response.set_content("50.2");
 

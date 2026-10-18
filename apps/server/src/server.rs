@@ -62,24 +62,13 @@ impl<'a> Server<'a> {
     Ok(())
   }
 
-  pub fn get<F>(&mut self, path: &str, on_request: F)
+  pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
   where
     F: Fn(Request, Response) -> () + 'static,
   {
     self.routes.push(Route {
       path: path.to_string(),
-      method: HTTPMethod::Get(),
-      callback: Box::new(on_request),
-    })
-  }
-
-  pub fn post<F>(&mut self, path: &str, on_request: F)
-  where
-    F: Fn(Request, Response) -> () + 'static,
-  {
-    self.routes.push(Route {
-      path: path.to_string(),
-      method: HTTPMethod::Post(),
+      method: method,
       callback: Box::new(on_request),
     })
   }
