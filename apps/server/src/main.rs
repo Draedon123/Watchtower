@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   let data_writer_2 = data.clone();
   server.route(
-    "/set/[machine]/[key]/[value]",
+    "/set/[machine]/[key]",
     HTTPMethod::Post(),
     move |request, response| {
       response
@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       let machine = request.slugs.get("machine").unwrap();
       let key = request.slugs.get("key").unwrap();
-      let value = request.slugs.get("value").unwrap();
+      let value = request.http_request.get_content();
 
       let mut data = data_writer_2.write().unwrap();
 
