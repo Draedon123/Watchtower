@@ -5,7 +5,7 @@ use std::net::TcpListener;
 struct Route {
   method: HTTPMethod,
   path: String,
-  callback: Box<dyn Fn(Request, Response) -> ()>,
+  callback: Box<dyn Fn(&mut Request, &mut Response) -> ()>,
 }
 
 pub struct Server<'a> {
@@ -42,9 +42,9 @@ impl<'a> Server<'a> {
         .find(|route| route.method == request.method && route.path == request.path)
       {
         Some(route) => {
-          let response = Response::new();
+          let mut response = Response::new();
 
-          (route.callback)(request, response);
+          (route.callback)(&mut request, &mut response);
         }
         None => {
           println!(
@@ -64,7 +64,7 @@ impl<'a> Server<'a> {
 
   pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
   where
-    F: Fn(Request, Response) -> () + 'static,
+    F: Fn(&mut Request, &mut Response) -> () + 'static,
   {
     self.routes.push(Route {
       path: path.to_string(),
