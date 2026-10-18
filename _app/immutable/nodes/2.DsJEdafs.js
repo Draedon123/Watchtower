@@ -1,1 +1,0 @@
-import{N as e,d as t,p as n}from"../chunks/DxWc_Pgs.js";import"../chunks/xihTtKlq.js";var r=n(`<title>Watchtower</title> <h1>Watchtower</h1>`,1);function i(n){var i=r();e(2),t(n,i)}export{i as component};
