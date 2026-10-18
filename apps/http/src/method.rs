@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+#[derive(PartialEq)]
 pub enum HTTPMethod {
   Get(),
   Post(),

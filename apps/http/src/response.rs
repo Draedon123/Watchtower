@@ -16,8 +16,8 @@ impl Response {
     }
   }
 
-  pub fn set_content(&mut self, content: String) {
-    self.content = content;
+  pub fn set_content(&mut self, content: &str) {
+    self.content = content.to_string();
 
     self
       .headers
