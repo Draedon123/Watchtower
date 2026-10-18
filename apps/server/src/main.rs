@@ -80,6 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   );
 
   let data_writer_1 = data.clone();
+  let server_password_1 = config.password.clone();
   server.route(
     "/set/[machine]",
     HTTPMethod::Post(),
@@ -87,6 +88,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       response
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
+
+      let content = request.http_request.get_content();
+      let content: Vec<_> = content.lines().collect();
+
+      let password = if content.is_empty() { "" } else { content[0] };
+
+      if password != server_password_1 {
+        println!("Received unauthenticated request");
+
+        response.status_code = StatusCode::Status403;
+        request.respond(response);
+
+        return;
+      }
 
       let machine = request.slugs.get("machine").unwrap();
 
@@ -103,6 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   );
 
   let data_writer_2 = data.clone();
+  let server_password_2 = config.password.clone();
   server.route(
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
@@ -111,9 +127,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
 
+      let content = request.http_request.get_content();
+      let content: Vec<_> = content.lines().collect();
+      let password = if content.is_empty() { "" } else { content[0] };
+
+      if password != server_password_2 {
+        println!("Received unauthenticated request");
+
+        response.status_code = StatusCode::Status403;
+        request.respond(response);
+
+        return;
+      }
+
       let machine = request.slugs.get("machine").unwrap();
       let key = request.slugs.get("key").unwrap();
-      let value = request.http_request.get_content();
+      let value = if content.is_empty() { "" } else { content[1] };
 
       let mut data = data_writer_2.write().unwrap();
 
@@ -129,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       };
 
-      request.respond(&response);
+      request.respond(response);
     },
   );
 

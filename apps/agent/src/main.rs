@@ -16,6 +16,7 @@ fn main() {
 
   connection.path = String::from(format!("/set/{}", hostname));
   connection.method = http::method::HTTPMethod::Post();
+  connection.set_content(&config.password);
   connection.send();
 
   let (mut last_total, mut last_idle) = read_cpu_times();
@@ -37,7 +38,7 @@ fn main() {
     connection = Request::new(&address);
     connection.method = http::method::HTTPMethod::Post();
     connection.path = String::from(format!("/set/{}/cpu_usage", hostname));
-    connection.set_content(&format!("{}", usage));
+    connection.set_content(&format!("{}\n{}", config.password, usage));
     connection.send();
   }
 }
