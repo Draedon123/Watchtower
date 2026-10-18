@@ -7,6 +7,7 @@ pub enum HTTPMethod {
   Put(),
   Delete(),
   Patch(),
+  Unknown(String),
 }
 
 impl From<&str> for HTTPMethod {
@@ -17,7 +18,7 @@ impl From<&str> for HTTPMethod {
       "PUT" => HTTPMethod::Put(),
       "DELETE" => HTTPMethod::Delete(),
       "PATCH" => HTTPMethod::Patch(),
-      &_ => todo!(),
+      &_ => HTTPMethod::Unknown(value.to_string()),
     }
   }
 }
@@ -30,6 +31,7 @@ impl Display for HTTPMethod {
       HTTPMethod::Put() => "PUT",
       HTTPMethod::Delete() => "DELETE",
       HTTPMethod::Patch() => "PATCH",
+      HTTPMethod::Unknown(method) => method,
     };
 
     f.write_str(formatted)?;
