@@ -16,6 +16,7 @@ fn main() {
 
   connection.path = String::from(format!("/set/{}", hostname));
   connection.method = http::method::HTTPMethod::Post();
+  connection.headers.set_header("Host", &address);
   connection.set_content(&config.password);
   connection.send();
 
@@ -38,6 +39,7 @@ fn main() {
     connection = Request::new(&address);
     connection.method = http::method::HTTPMethod::Post();
     connection.path = String::from(format!("/set/{}/cpu_usage", hostname));
+    connection.headers.set_header("Host", &address);
     connection.set_content(&format!("{}\n{}", config.password, usage));
     connection.send();
   }
