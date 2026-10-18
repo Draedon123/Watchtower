@@ -23,6 +23,28 @@ pub struct Data {
   max_values_per_key: usize,
 }
 
+type DataResult<T> = std::result::Result<T, DataResultError>;
+
+pub enum DataResultError {
+  MachineNotFound(String),
+  KeyNotFound(String),
+  NoValuesError(String),
+}
+
+impl std::fmt::Display for DataResultError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      DataResultError::KeyNotFound(key) => f.write_fmt(format_args!("Key \"{}\" not found", key)),
+      DataResultError::MachineNotFound(machine) => {
+        f.write_fmt(format_args!("Machine \"{}\" not found", machine))
+      }
+      DataResultError::NoValuesError(key) => {
+        f.write_fmt(format_args!("No values for key \"{}\" found", key))
+      }
+    }
+  }
+}
+
 impl Data {
   pub fn new(max_values_per_key: usize) -> Data {
     Data {
@@ -54,15 +76,27 @@ impl Data {
     values.push_front(data_entry);
   }
 
-  pub fn get_machine_data_recent(&self, machine: &str, data_key: &str) -> Option<&DataEntry> {
-    self.machine_data.get(machine)?.get(data_key)?.front()
+  pub fn get_machine_data_recent(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {
+    Ok(
+      self
+        .get_machine_data_all(machine, data_key)?
+        .front()
+        .ok_or(DataResultError::NoValuesError(data_key.to_string()))?,
+    )
   }
 
   pub fn get_machine_data_all(
     &self,
     machine: &str,
     data_key: &str,
-  ) -> Option<&VecDeque<DataEntry>> {
-    self.machine_data.get(machine)?.get(data_key)
+  ) -> DataResult<&VecDeque<DataEntry>> {
+    Ok(
+      self
+        .machine_data
+        .get(machine)
+        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+        .get(data_key)
+        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?,
+    )
   }
 }
