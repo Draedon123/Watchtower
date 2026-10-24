@@ -57,9 +57,7 @@ impl CpuUsage {
     connection.path = String::from(format!("/set/{}/cpu_usage", hostname));
     connection
       .headers
-      .set_header("Host", &config.watchtower_url);
-    connection
-      .headers
+      .set_header("Host", &config.watchtower_url)
       .set_header("Authorization", &config.password);
     connection.set_content(&format!("{usage}"));
     connection.send()?;

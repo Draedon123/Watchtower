@@ -123,9 +123,7 @@ impl Request {
 
     self
       .headers
-      .set_header("Content-Length", &self.content.len().to_string());
-    self
-      .headers
+      .set_header("Content-Length", &self.content.len().to_string())
       .set_header("Content-Type", "text/plain; charset=utf-8");
   }
 
