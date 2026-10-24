@@ -54,7 +54,7 @@ impl CpuUsage {
       HTTPMethod::Post(),
       &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
       Some(headers),
-    );
+    )?;
 
     let usage = self.get_usage()?;
 

@@ -22,7 +22,7 @@ impl Client {
     method: HTTPMethod,
     address: &str,
     headers: Option<Headers>,
-  ) -> Request {
+  ) -> Result<Request, String> {
     let url = Url::new(address);
 
     if let Ok(protocol) = url.protocol() {
@@ -31,8 +31,14 @@ impl Client {
       }
     };
 
-    let host = url.host().unwrap();
-    let path = url.path().unwrap();
+    let host = match url.host() {
+      Ok(host) => host,
+      Err(_) => return Err(format!("Could not get host from address \"{address}\"")),
+    };
+    let path = match url.path() {
+      Ok(path) => path,
+      Err(_) => return Err(format!("Could not get path from address \"{address}\"")),
+    };
     let port = url
       .port()
       .unwrap_or_else(|_| url.guess_port().unwrap_or(80));
@@ -41,7 +47,12 @@ impl Client {
       self.host = host.clone();
       self.port = port;
 
-      self.stream = Some(TcpStream::connect((host, port)).unwrap());
+      let stream = match TcpStream::connect((host, port)) {
+        Ok(stream) => stream,
+        Err(error) => return Err(error.to_string()),
+      };
+
+      self.stream = Some(stream);
     };
 
     if let Some(stream) = self.stream.as_ref() {
@@ -53,9 +64,9 @@ impl Client {
         request.headers = headers;
       };
 
-      request
+      Ok(request)
     } else {
-      panic!("No connection made");
+      Err(String::from("No connection made"))
     }
   }
 }

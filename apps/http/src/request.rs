@@ -108,11 +108,16 @@ impl Request {
       .parse::<usize>()
       .unwrap_or(0);
 
+    let stream_copy = match stream.try_clone() {
+      Ok(stream) => stream,
+      Err(error) => return Err(format!("Failed to copy stream: {error}")),
+    };
+
     let mut request = Request {
       method,
       path,
       headers,
-      stream: stream.try_clone().unwrap(),
+      stream: stream_copy,
       content: String::new(),
     };
 

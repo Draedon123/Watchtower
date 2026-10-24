@@ -27,7 +27,7 @@ pub fn try_register(config: &Config, client: &mut Client) -> Result<(), String> 
     HTTPMethod::Post(),
     &format!("{}/set/{hostname}", config.watchtower_address),
     Some(headers),
-  );
+  )?;
 
   connection.send()?;
 
