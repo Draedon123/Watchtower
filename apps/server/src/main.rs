@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 
 mod config;
 mod data;
+mod route;
 mod server;
 
 use http::method::HTTPMethod;
