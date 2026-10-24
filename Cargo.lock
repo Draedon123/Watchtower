@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "config_parser"
+version = "0.1.0"
+
+[[package]]
 name = "http"
 version = "0.1.0"
 
@@ -10,6 +14,7 @@ version = "0.1.0"
 name = "watchtower-agent"
 version = "0.1.0"
 dependencies = [
+ "config_parser",
  "http",
 ]
 
@@ -17,5 +22,6 @@ dependencies = [
 name = "watchtower-server"
 version = "0.1.0"
 dependencies = [
+ "config_parser",
  "http",
 ]

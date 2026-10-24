@@ -1,3 +1,5 @@
+use config_parser::parse_args;
+
 const DEFAULT_PORT: u16 = 9824;
 
 pub struct Config {
@@ -7,51 +9,21 @@ pub struct Config {
 
 impl Config {
   pub fn new(args: &[String]) -> Config {
-    let mut config = Config::empty();
+    let (arguments, _, _) = parse_args(args);
 
-    let mut i: usize = 0;
-    while i < args.len() {
-      let arg = &args[i];
+    let port = match arguments.get("port") {
+      Some(string) => string.parse::<u16>().unwrap_or_else(|_| {
+        eprintln!("Failed to parse port \"{string}\"");
+        DEFAULT_PORT
+      }),
+      None => DEFAULT_PORT,
+    };
 
-      if arg.starts_with("--") {
-        let value_index = i + 1;
+    let password = match arguments.get("password") {
+      Some(string) => string.clone(),
+      None => String::new(),
+    };
 
-        if value_index >= args.len() {
-          eprintln!("Argument \"{}\" is missing value", arg);
-          break;
-        }
-
-        let value = &args[value_index];
-        i += 1;
-
-        match arg.as_str() {
-          "--port" => {
-            let port = value.parse::<u16>().unwrap_or_else(|_| {
-              eprintln!("Failed to parse port \"{}\"", value);
-              DEFAULT_PORT
-            });
-
-            config.port = port;
-          }
-          "--password" => {
-            config.password = value.clone();
-          }
-          &_ => {
-            eprintln!("Unknown argument \"{}\"", arg);
-          }
-        };
-      }
-
-      i += 1;
-    }
-
-    config
-  }
-
-  fn empty() -> Config {
-    Config {
-      port: DEFAULT_PORT,
-      password: String::new(),
-    }
+    Config { port, password }
   }
 }
