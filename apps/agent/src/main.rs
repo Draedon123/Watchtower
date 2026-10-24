@@ -1,9 +1,11 @@
 use std::{env, thread::sleep, time};
 
-use crate::{config::Config, register::loop_register, system::cpu_usage::CpuUsage};
+use crate::{
+  config::Config,
+  system::{cpu_usage::CpuUsage, register::loop_register},
+};
 
 mod config;
-mod register;
 mod system;
 
 fn main() {

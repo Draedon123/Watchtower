@@ -29,6 +29,9 @@ pub fn try_register(config: &Config) -> Result<(), String> {
   connection
     .headers
     .set_header("Host", &config.watchtower_url);
+  connection
+    .headers
+    .set_header("Authorization", &config.password);
   connection.set_content(&config.password);
   connection.send()?;
 

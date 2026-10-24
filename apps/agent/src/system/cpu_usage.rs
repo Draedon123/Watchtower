@@ -58,7 +58,10 @@ impl CpuUsage {
     connection
       .headers
       .set_header("Host", &config.watchtower_url);
-    connection.set_content(&format!("{}\n{}", config.password, usage));
+    connection
+      .headers
+      .set_header("Authorization", &config.password);
+    connection.set_content(&format!("{usage}"));
     connection.send()?;
 
     Ok(())

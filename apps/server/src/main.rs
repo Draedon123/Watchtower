@@ -95,16 +95,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
 
-      let content = request.http_request.get_content();
-      let content: Vec<_> = content.lines().collect();
-
       let machine = request.slugs.get("machine").unwrap().clone();
-      let password = if content.is_empty() { "" } else { content[0] };
-
+      let password = match request.http_request.headers.get_header("Authorization") {
+        Some(password) => password.clone(),
+        None => String::new(),
+      };
       if password != server_password_1 {
         println!("Received unauthenticated request");
 
-        response.status_code = StatusCode::Status403;
+        response.status_code = StatusCode::Status401;
         if let Err(error) = request.respond(response) {
           eprintln!("Failed to serve POST route \"/set/{machine}\": {error}");
         };
@@ -135,9 +134,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
 
-      let content = request.http_request.get_content();
-      let content: Vec<_> = content.lines().collect();
-      let password = if content.is_empty() { "" } else { content[0] };
+      let content: Vec<_> = request.http_request.get_content().lines().collect();
+      let password = match request.http_request.headers.get_header("Authorization") {
+        Some(password) => password.clone(),
+        None => String::new(),
+      };
 
       let machine = request.slugs.get("machine").unwrap().clone();
       let key = request.slugs.get("key").unwrap().clone();
@@ -145,14 +146,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       if password != server_password_2 {
         println!("Received unauthenticated request");
 
-        response.status_code = StatusCode::Status403;
+        response.status_code = StatusCode::Status401;
         if let Err(error) = request.respond(response) {
           eprintln!("Failed to serve POST route \"/set/{machine}/{key}\": {error}",);
         };
         return;
       }
 
-      let value = if content.is_empty() { "" } else { content[1] };
+      let value = if content.is_empty() { "" } else { content[0] };
 
       let mut data = data_writer_2.write().unwrap();
 
