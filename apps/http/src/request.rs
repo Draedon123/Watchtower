@@ -10,19 +10,44 @@ pub struct Request {
   pub method: HTTPMethod,
   pub path: String,
   pub headers: Headers,
+  pub stream: Option<TcpStream>,
 
   content: String,
-  stream: Option<TcpStream>,
 }
 
 impl Request {
-  pub fn new(address: &str) -> Request {
-    Request {
+  pub fn new(address: &str) -> std::io::Result<Request> {
+    let stream = TcpStream::connect(address)?;
+
+    Ok(Request {
       method: HTTPMethod::Get(),
       path: String::new(),
       content: String::new(),
       headers: Headers::new(),
-      stream: Some(TcpStream::connect(address).unwrap()),
+      stream: Some(stream),
+    })
+  }
+
+  pub fn new_auto_handle_errors(address: &str) -> Request {
+    let request = Request::new(address);
+
+    match request {
+      Ok(request) => request,
+      Err(error) => {
+        match error.kind() {
+          std::io::ErrorKind::NetworkUnreachable => {
+            eprintln!("Could not reach network");
+          }
+          std::io::ErrorKind::HostUnreachable => {
+            eprintln!("Could not reach host {}", address);
+          }
+          _ => {
+            eprintln!("Unknown error: {:#?}", error);
+          }
+        };
+
+        Request::empty()
+      }
     }
   }
 
@@ -113,13 +138,14 @@ impl Request {
       self.method, self.path, self.headers, self.content
     );
 
-    println!("{}", content);
+    let stream = self.stream.as_mut().unwrap();
 
-    self
-      .stream
-      .as_mut()
-      .unwrap()
-      .write_all(content.as_bytes())
-      .unwrap();
+    stream.write_all(content.as_bytes()).unwrap();
+
+    let mut response = [0; 4096];
+    match stream.read(&mut response) {
+      Ok(n) => println!("Response:\n{}", String::from_utf8_lossy(&response[..n])),
+      Err(e) => eprintln!("Read failed: {e}"),
+    }
   }
 }
