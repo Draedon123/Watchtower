@@ -38,7 +38,7 @@ impl CpuUsage {
   }
 
   pub fn send_to_watchtower(&mut self, config: &Config) -> Result<(), String> {
-    let mut connection = Request::new_auto_handle_errors(&config.watchtower_url);
+    let mut connection = Request::new_auto_handle_errors(&config.watchtower_address);
 
     if let None = connection.stream {
       return Err(String::from("Failed to send cpu usage to watchtower"));
@@ -54,10 +54,10 @@ impl CpuUsage {
     let usage = self.get_usage()?;
 
     connection.method = http::method::HTTPMethod::Post();
-    connection.path = String::from(format!("/set/{}/cpu_usage", hostname));
+    connection.path = String::from(format!("/set/{hostname}/cpu_usage"));
     connection
       .headers
-      .set_header("Host", &config.watchtower_url)
+      .set_header("Host", &config.watchtower_address)
       .set_header("Authorization", &config.password);
     connection.set_content(&format!("{usage}"));
     connection.send()?;

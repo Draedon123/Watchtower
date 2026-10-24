@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(error) => {
           response.status_code = StatusCode::Status400;
-          response.set_content(&format!("{}", error));
+          response.set_content(&error.to_string());
         }
       };
 

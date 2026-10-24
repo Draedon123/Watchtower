@@ -13,7 +13,7 @@ pub fn parse_args(args: &[String]) -> (HashMap<String, String>, HashSet<String>,
       let value_index = i + 1;
 
       if value_index >= args.len() {
-        eprintln!("Argument \"{}\" is missing value", arg);
+        eprintln!("Argument \"{arg}\" is missing value");
         break;
       }
 

@@ -34,12 +34,12 @@ pub enum DataResultError {
 impl std::fmt::Display for DataResultError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      DataResultError::KeyNotFound(key) => f.write_fmt(format_args!("Key \"{}\" not found", key)),
+      DataResultError::KeyNotFound(key) => write!(f, "Key \"{key}\" not found"),
       DataResultError::MachineNotFound(machine) => {
-        f.write_fmt(format_args!("Machine \"{}\" not found", machine))
+        write!(f, "Machine \"{machine}\" not found")
       }
       DataResultError::NoValuesError(key) => {
-        f.write_fmt(format_args!("No values for key \"{}\" found", key))
+        write!(f, "No values for key \"{key}\" found")
       }
     }
   }

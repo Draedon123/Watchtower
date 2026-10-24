@@ -11,7 +11,7 @@ pub fn loop_register(config: &Config) {
 }
 
 pub fn try_register(config: &Config) -> Result<(), String> {
-  let mut connection = Request::new_auto_handle_errors(&config.watchtower_url);
+  let mut connection = Request::new_auto_handle_errors(&config.watchtower_address);
 
   if let None = connection.stream {
     return Err(String::from("Failed to register device with watchtower"));
@@ -24,11 +24,11 @@ pub fn try_register(config: &Config) -> Result<(), String> {
     }
   };
 
-  connection.path = String::from(format!("/set/{}", hostname));
+  connection.path = String::from(format!("/set/{hostname}"));
   connection.method = http::method::HTTPMethod::Post();
   connection
     .headers
-    .set_header("Host", &config.watchtower_url)
+    .set_header("Host", &config.watchtower_address)
     .set_header("Authorization", &config.password);
   connection.set_content(&config.password);
   connection.send()?;

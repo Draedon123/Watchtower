@@ -39,7 +39,7 @@ impl Request {
             eprintln!("Could not reach network");
           }
           std::io::ErrorKind::HostUnreachable => {
-            eprintln!("Could not reach host {}", address);
+            eprintln!("Could not reach host {address}");
           }
           _ => {
             eprintln!("Unknown error: {:#?}", error);

@@ -109,7 +109,7 @@ impl<'a> Server<'a> {
       let request_method = http_request.method.clone();
       let request_path = http_request.path.clone();
 
-      println!("Received {} request for {}", request_method, request_path);
+      println!("Received {request_method} request for {request_path}");
 
       let route = self.routes.iter().find(|route| {
         if route.method != request_method {
