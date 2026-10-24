@@ -57,7 +57,7 @@ impl Route {
 }
 
 pub struct ServerRequest<'a> {
-  pub http_request: &'a mut Request,
+  pub http_request: &'a mut Request<'a>,
   pub slugs: HashMap<String, String>,
 }
 
@@ -98,7 +98,7 @@ impl<'a> Server<'a> {
         continue;
       };
 
-      let mut http_request = if let Ok(request) = Request::read_from_stream(stream) {
+      let mut http_request = if let Ok(request) = Request::read_from_stream(&stream) {
         request
       } else {
         eprintln!("Failed to read incoming TcpStream");

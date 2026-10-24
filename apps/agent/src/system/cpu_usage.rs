@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use http::request::Request;
+use http::{client::Client, header::Headers, method::HTTPMethod};
 
 use crate::{config::Config, system::hostname::get_hostname};
 
@@ -37,13 +37,7 @@ impl CpuUsage {
     Ok(usage)
   }
 
-  pub fn send_to_watchtower(&mut self, config: &Config) -> Result<(), String> {
-    let mut connection = Request::new_auto_handle_errors(&config.watchtower_address);
-
-    if let None = connection.stream {
-      return Err(String::from("Failed to send cpu usage to watchtower"));
-    };
-
+  pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
     let hostname = match get_hostname() {
       Ok(hostname) => hostname,
       Err(error) => {
@@ -51,14 +45,19 @@ impl CpuUsage {
       }
     };
 
-    let usage = self.get_usage()?;
-
-    connection.method = http::method::HTTPMethod::Post();
-    connection.path = String::from(format!("/set/{hostname}/cpu_usage"));
-    connection
-      .headers
+    let mut headers = Headers::new();
+    headers
       .set_header("Host", &config.watchtower_address)
       .set_header("Authorization", &config.password);
+
+    let mut connection = client.request(
+      HTTPMethod::Post(),
+      &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
+      Some(headers),
+    );
+
+    let usage = self.get_usage()?;
+
     connection.set_content(&format!("{usage}"));
     connection.send()?;
 

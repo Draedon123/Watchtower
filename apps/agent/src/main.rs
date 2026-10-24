@@ -1,5 +1,7 @@
 use std::{env, thread::sleep, time};
 
+use http::client::Client;
+
 use crate::{
   config::Config,
   system::{cpu_usage::CpuUsage, register::loop_register},
@@ -12,14 +14,15 @@ fn main() {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
-  loop_register(&config);
+  let mut client = Client::new();
+  loop_register(&config, &mut client);
 
   let mut cpu_usage = CpuUsage::new();
   loop {
     sleep(time::Duration::from_millis(1000));
 
-    if let Err(_) = cpu_usage.send_to_watchtower(&config) {
-      eprintln!("Failed to send cpu usage to watchtower");
+    if let Err(error) = cpu_usage.send_to_watchtower(&config, &mut client) {
+      eprintln!("Failed to send cpu usage to watchtower: {error}");
     };
   }
 }
