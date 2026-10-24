@@ -11,13 +11,18 @@ impl Headers {
     }
   }
 
-  pub fn add_header_line(&mut self, line: &str) {
-    let line_split: Vec<_> = line.split(":").map(|string| string.trim()).collect();
+  pub fn add_header_line(&mut self, line: &str) -> Result<(), String> {
+    let line_split = if let Some(split) = line.split_once(":") {
+      (split.0.trim(), split.1.trim())
+    } else {
+      return Err(format!("Received malformed header line: {line}"));
+    };
 
-    let key = line_split[0];
-    let value = line_split[1];
+    let key = line_split.0;
+    let value = line_split.1;
 
     self.set_header(key, value);
+    Ok(())
   }
 
   pub fn get_header(&self, key: &str) -> Option<&String> {

@@ -16,6 +16,8 @@ fn main() {
   loop {
     sleep(time::Duration::from_millis(1000));
 
-    cpu_usage.send_to_watchtower(&config);
+    if let Err(_) = cpu_usage.send_to_watchtower(&config) {
+      eprintln!("Failed to send cpu usage to watchtower");
+    };
   }
 }

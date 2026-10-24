@@ -62,7 +62,7 @@ pub struct ServerRequest<'a> {
 }
 
 impl<'a> ServerRequest<'a> {
-  pub fn respond(&mut self, response: &Response) {
+  pub fn respond(&mut self, response: &Response) -> Result<(), String> {
     self.http_request.respond(response)
   }
 }
@@ -91,9 +91,19 @@ impl<'a> Server<'a> {
     println!("Opened server on {server_address}");
 
     for stream in listener.incoming() {
-      let stream = stream.unwrap();
+      let stream = if let Ok(stream) = stream {
+        stream
+      } else {
+        eprintln!("Failed to read incoming TcpStream");
+        continue;
+      };
 
-      let mut http_request = Request::read_from_stream(stream);
+      let mut http_request = if let Ok(request) = Request::read_from_stream(stream) {
+        request
+      } else {
+        eprintln!("Failed to read incoming TcpStream");
+        continue;
+      };
 
       let mut request_slugs: HashMap<String, String> = HashMap::new();
       let request_method = http_request.method.clone();
@@ -128,14 +138,15 @@ impl<'a> Server<'a> {
           (route.callback)(&mut request, &mut response);
         }
         None => {
-          println!(
-            "Route not found. Method: {}, Path: {}",
-            request_method, request_path
-          );
+          println!("Route not found. Method: {request_method}, Path: {request_path}",);
           let mut response = Response::new();
 
           response.status_code = http::status_codes::StatusCode::Status404;
-          request.respond(&response);
+          if let Err(error) = request.respond(&response) {
+            eprintln!(
+              "Failed to send 404 for {request_method} request for route {request_path}: {error}"
+            );
+          };
         }
       };
     }

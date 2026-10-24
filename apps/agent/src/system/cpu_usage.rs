@@ -11,7 +11,7 @@ pub struct CpuUsage {
 
 impl CpuUsage {
   pub fn new() -> CpuUsage {
-    let (total, idle) = CpuUsage::read_cpu_times();
+    let (total, idle) = CpuUsage::read_cpu_times().unwrap_or((0, 0));
 
     CpuUsage {
       last_total: total,
@@ -19,8 +19,11 @@ impl CpuUsage {
     }
   }
 
-  pub fn get_usage(&mut self) -> f32 {
-    let (new_total, new_idle) = CpuUsage::read_cpu_times();
+  pub fn get_usage(&mut self) -> Result<f32, String> {
+    let (new_total, new_idle) = match CpuUsage::read_cpu_times() {
+      Ok(cpu_times) => cpu_times,
+      Err(error) => return Err(format!("Failed to get cpu usage: {error}")),
+    };
 
     let delta_total = new_total - self.last_total;
     let delta_idle = new_idle - self.last_idle;
@@ -31,40 +34,55 @@ impl CpuUsage {
     self.last_total = new_total;
     self.last_idle = new_idle;
 
-    usage
+    Ok(usage)
   }
 
-  pub fn send_to_watchtower(&mut self, config: &Config) {
+  pub fn send_to_watchtower(&mut self, config: &Config) -> Result<(), String> {
     let mut connection = Request::new_auto_handle_errors(&config.watchtower_url);
-    let hostname = get_hostname();
 
     if let None = connection.stream {
-      eprintln!("Failed to send cpu usage to watchtower");
-      return;
+      return Err(String::from("Failed to send cpu usage to watchtower"));
     };
+
+    let hostname = match get_hostname() {
+      Ok(hostname) => hostname,
+      Err(error) => {
+        return Err(format!("Failed to get device hostname: {error}"));
+      }
+    };
+
+    let usage = self.get_usage()?;
 
     connection.method = http::method::HTTPMethod::Post();
     connection.path = String::from(format!("/set/{}/cpu_usage", hostname));
     connection
       .headers
       .set_header("Host", &config.watchtower_url);
-    connection.set_content(&format!("{}\n{}", config.password, self.get_usage()));
-    connection.send();
+    connection.set_content(&format!("{}\n{}", config.password, usage));
+    connection.send()?;
+
+    Ok(())
   }
 
-  fn read_cpu_times() -> (u64, u64) {
-    let stats = read_to_string("/proc/stat").unwrap();
-    let cpu_line = stats.lines().find(|line| line.starts_with("cpu ")).unwrap();
+  fn read_cpu_times() -> Result<(u64, u64), String> {
+    let stats = match read_to_string("/proc/stat") {
+      Ok(data) => data,
+      Err(_) => return Err(String::from("Could not read from /proc/stat")),
+    };
+    let cpu_line = stats
+      .lines()
+      .find(|line| line.starts_with("cpu "))
+      .ok_or(String::from("Could not find cpu line in /proc/stat"))?;
     let values: Vec<_> = cpu_line
       .split_whitespace()
       .skip(1)
-      .map(|value| value.parse::<u64>().unwrap())
+      .map(|value| value.parse::<u64>().unwrap_or(0))
       .collect();
 
     let total_time = values.iter().take(8).sum();
     // idle and iowait
     let idle_time = values[3] + values[4];
 
-    (total_time, idle_time)
+    Ok((total_time, idle_time))
   }
 }

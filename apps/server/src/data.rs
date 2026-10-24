@@ -53,7 +53,12 @@ impl Data {
     }
   }
 
-  pub fn set_data(&mut self, machine: &str, data_key: &str, data_value: DataType) {
+  pub fn set_data(
+    &mut self,
+    machine: &str,
+    data_key: &str,
+    data_value: DataType,
+  ) -> Result<(), String> {
     let values = self
       .machine_data
       .entry(machine.to_string())
@@ -65,15 +70,19 @@ impl Data {
       values.pop_back();
     }
 
+    let timestamp = if let Ok(timestamp) = SystemTime::now().duration_since(UNIX_EPOCH) {
+      timestamp
+    } else {
+      return Err(String::from("Failed to get current time"));
+    };
+
     let data_entry = DataEntry {
       data: data_value,
-      timestamp: SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs(),
+      timestamp: timestamp.as_secs(),
     };
 
     values.push_front(data_entry);
+    Ok(())
   }
 
   pub fn get_machine_data_recent(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {

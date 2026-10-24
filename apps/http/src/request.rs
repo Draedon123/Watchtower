@@ -51,7 +51,7 @@ impl Request {
     }
   }
 
-  pub fn read_from_stream(stream: TcpStream) -> Request {
+  pub fn read_from_stream(stream: TcpStream) -> Result<Request, String> {
     let mut request = Request::empty();
     let mut buffer_reader = BufReader::new(&stream);
     let mut lines = Vec::<String>::new();
@@ -60,14 +60,18 @@ impl Request {
     loop {
       let mut line = String::new();
 
-      buffer_reader.read_line(&mut line).unwrap();
+      if let Err(_) = buffer_reader.read_line(&mut line) {
+        return Err(format!("Could not read line {i}"));
+      };
 
       if line == "\r\n" || line == "\n" || line.is_empty() {
         break;
       }
 
       if i != 1 {
-        request.headers.add_header_line(&line);
+        if let Err(_) = request.headers.add_header_line(&line) {
+          eprintln!("Malformed header received: {line}");
+        };
       };
 
       lines.push(line.trim().to_string());
@@ -89,13 +93,19 @@ impl Request {
     if content_length > 0 {
       let mut content = vec![0; content_length];
 
-      buffer_reader.read_exact(&mut content).unwrap();
+      if let Err(_) = buffer_reader.read_exact(&mut content) {
+        return Err(String::from("Failed to read content from request"));
+      };
 
-      request.content = String::from_utf8(content).unwrap();
+      request.content = if let Ok(content) = String::from_utf8(content) {
+        content
+      } else {
+        return Err(String::from("Failed to read content from request"));
+      };
     }
 
     request.stream = Some(stream);
-    request
+    Ok(request)
   }
 
   fn empty() -> Request {
@@ -123,29 +133,44 @@ impl Request {
     &self.content
   }
 
-  pub fn respond(&mut self, response: &Response) {
-    self
-      .stream
-      .as_mut()
-      .unwrap()
-      .write_all(response.to_string().as_bytes())
-      .unwrap();
+  pub fn respond(&mut self, response: &Response) -> Result<(), String> {
+    let stream = if let Some(stream) = self.stream.as_mut() {
+      stream
+    } else {
+      return Err(String::from(
+        "Failed to obtain mutable reference to TcpStream",
+      ));
+    };
+
+    if let Ok(_) = stream.write_all(response.to_string().as_bytes()) {
+      Ok(())
+    } else {
+      Err(String::from("Failed to write content to TcpStream"))
+    }
   }
 
-  pub fn send(&mut self) {
+  pub fn send(&mut self) -> Result<(), String> {
     let content = format!(
       "{} {} HTTP/1.1\r\n{}\r\n{}",
       self.method, self.path, self.headers, self.content
     );
 
-    let stream = self.stream.as_mut().unwrap();
+    let stream = if let Some(stream) = self.stream.as_mut() {
+      stream
+    } else {
+      return Err(String::from(
+        "Failed to obtain mutable reference to TcpStream",
+      ));
+    };
 
-    stream.write_all(content.as_bytes()).unwrap();
+    if let Err(_) = stream.write_all(content.as_bytes()) {
+      return Err(String::from("Failed to write content to TcpStream"));
+    };
 
     let mut response = [0; 4096];
     match stream.read(&mut response) {
-      Ok(n) => println!("Response:\n{}", String::from_utf8_lossy(&response[..n])),
-      Err(e) => eprintln!("Read failed: {e}"),
+      Ok(_) => Ok(()),
+      Err(_) => Err(String::from("Failed to read response")),
     }
   }
 }

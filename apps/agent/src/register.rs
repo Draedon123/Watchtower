@@ -10,13 +10,18 @@ pub fn loop_register(config: &Config) {
   }
 }
 
-pub fn try_register(config: &Config) -> Result<(), ()> {
+pub fn try_register(config: &Config) -> Result<(), String> {
   let mut connection = Request::new_auto_handle_errors(&config.watchtower_url);
-  let hostname = get_hostname();
 
   if let None = connection.stream {
-    eprintln!("Failed to register device with watchtower");
-    return Err(());
+    return Err(String::from("Failed to register device with watchtower"));
+  };
+
+  let hostname = match get_hostname() {
+    Ok(hostname) => hostname,
+    Err(error) => {
+      return Err(format!("Failed to get device hostname: {error}"));
+    }
   };
 
   connection.path = String::from(format!("/set/{}", hostname));
@@ -25,7 +30,7 @@ pub fn try_register(config: &Config) -> Result<(), ()> {
     .headers
     .set_header("Host", &config.watchtower_url);
   connection.set_content(&config.password);
-  connection.send();
+  connection.send()?;
 
   Ok(())
 }

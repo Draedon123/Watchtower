@@ -16,12 +16,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
-  let mut server = Server::new(&config).unwrap();
+  let mut server = Server::new(&config)?;
   let data = Arc::new(RwLock::new(Data::new(10)));
 
   server.route("/", HTTPMethod::Get(), |request, response| {
     response.status_code = StatusCode::Status200;
-    request.respond(response);
+    if let Err(error) = request.respond(response) {
+      eprintln!("Failed to serve route \"/\": {error}");
+    };
   });
 
   let data_reader_1 = data.clone();
@@ -33,11 +35,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .headers
         .set_header("Access-Control-Allow-Origin", "*");
 
-      let machine = request.slugs.get("machine").unwrap();
-      let key = request.slugs.get("key").unwrap();
+      let machine = request.slugs.get("machine").unwrap().clone();
+      let key = request.slugs.get("key").unwrap().clone();
 
       let data = data_reader_1.read().unwrap();
-      let recent_data = data.get_machine_data_recent(machine, key);
+      let recent_data = data.get_machine_data_recent(&machine, &key);
 
       match recent_data {
         Ok(data_entry) => {
@@ -50,7 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       };
 
-      request.respond(response);
+      if let Err(error) = request.respond(response) {
+        eprintln!("Failed to serve POST route \"/get/{machine}/{key}\": {error}",);
+      };
     },
   );
 
@@ -75,7 +79,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
           .join("\n"),
       );
 
-      request.respond(response);
+      if let Err(error) = request.respond(response) {
+        eprintln!("Failed to serve POST route \"/get/machines\": {error}");
+      };
     },
   );
 
@@ -92,28 +98,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let content = request.http_request.get_content();
       let content: Vec<_> = content.lines().collect();
 
+      let machine = request.slugs.get("machine").unwrap().clone();
       let password = if content.is_empty() { "" } else { content[0] };
 
       if password != server_password_1 {
         println!("Received unauthenticated request");
 
         response.status_code = StatusCode::Status403;
-        request.respond(response);
-
+        if let Err(error) = request.respond(response) {
+          eprintln!("Failed to serve POST route \"/set/{machine}\": {error}");
+        };
         return;
       }
 
-      let machine = request.slugs.get("machine").unwrap();
-
       let mut data = data_writer_1.write().unwrap();
 
-      response.status_code = if data.register_machine(machine) {
+      response.status_code = if data.register_machine(&machine) {
         StatusCode::Status200
       } else {
         StatusCode::Status400
       };
 
-      request.respond(response);
+      if let Err(error) = request.respond(response) {
+        eprintln!("Failed to serve POST route \"/set/{machine}\": {error}",);
+      };
     },
   );
 
@@ -131,17 +139,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let content: Vec<_> = content.lines().collect();
       let password = if content.is_empty() { "" } else { content[0] };
 
+      let machine = request.slugs.get("machine").unwrap().clone();
+      let key = request.slugs.get("key").unwrap().clone();
+
       if password != server_password_2 {
         println!("Received unauthenticated request");
 
         response.status_code = StatusCode::Status403;
-        request.respond(response);
-
+        if let Err(error) = request.respond(response) {
+          eprintln!("Failed to serve POST route \"/set/{machine}/{key}\": {error}",);
+        };
         return;
       }
 
-      let machine = request.slugs.get("machine").unwrap();
-      let key = request.slugs.get("key").unwrap();
       let value = if content.is_empty() { "" } else { content[1] };
 
       let mut data = data_writer_2.write().unwrap();
@@ -150,7 +160,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(value) => {
           response.status_code = StatusCode::Status200;
 
-          data.set_data(machine, key, DataType::F32Value(value));
+          if let Err(error) = data.set_data(&machine, &key, DataType::F32Value(value)) {
+            eprintln!("Failed to set \"{key}\"=\"{value}\" for machine \"{machine}\": {error}");
+          };
         }
         Err(_) => {
           response.status_code = StatusCode::Status400;
@@ -158,7 +170,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       };
 
-      request.respond(response);
+      if let Err(error) = request.respond(response) {
+        eprintln!("Failed to serve POST route \"/set/{machine}/{key}\": {error}",);
+      };
     },
   );
 
