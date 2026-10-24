@@ -4,23 +4,23 @@ use std::{io::prelude::*, net::TcpStream};
 use crate::method::HTTPMethod;
 use crate::{header::Headers, response::Response};
 
-pub struct Request<'a> {
+pub struct Request {
   pub method: HTTPMethod,
   pub path: String,
   pub headers: Headers,
 
-  stream: &'a TcpStream,
+  stream: TcpStream,
   content: String,
 }
 
-impl<'a> Request<'a> {
-  pub fn new(stream: &'a TcpStream) -> Request<'a> {
+impl Request {
+  pub fn new(stream: &TcpStream) -> Request {
     Request {
       method: HTTPMethod::Get(),
       path: String::new(),
       content: String::new(),
       headers: Headers::new(),
-      stream,
+      stream: stream.try_clone().unwrap(),
     }
   }
 
@@ -63,9 +63,9 @@ impl<'a> Request<'a> {
   }
 
   pub fn read_from_buffer<R: BufRead>(
-    stream: &'a TcpStream,
+    stream: &TcpStream,
     reader: &mut R,
-  ) -> Result<Option<Request<'a>>, String> {
+  ) -> Result<Option<Request>, String> {
     let mut buffer_reader = BufReader::new(reader);
     let mut lines = Vec::<String>::new();
 
@@ -112,7 +112,7 @@ impl<'a> Request<'a> {
       method,
       path,
       headers,
-      stream,
+      stream: stream.try_clone().unwrap(),
       content: String::new(),
     };
 

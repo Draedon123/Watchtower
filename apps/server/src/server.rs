@@ -1,6 +1,12 @@
 use crate::config::Config;
 use http::{method::HTTPMethod, request::Request, response::Response};
-use std::{collections::HashMap, io::BufReader, net::TcpListener};
+use std::{
+  collections::HashMap,
+  io::BufReader,
+  net::{TcpListener, TcpStream},
+  sync::{Arc, RwLock},
+  thread,
+};
 
 pub enum URLSection {
   Literal(String),
@@ -10,7 +16,7 @@ pub enum URLSection {
 struct Route {
   method: HTTPMethod,
   path: Vec<URLSection>,
-  callback: Box<dyn Fn(&mut ServerRequest, &mut Response) -> ()>,
+  callback: Arc<dyn Fn(&mut ServerRequest, &mut Response) + Send + Sync>,
 }
 
 impl Route {
@@ -57,7 +63,7 @@ impl Route {
 }
 
 pub struct ServerRequest<'a> {
-  pub http_request: &'a mut Request<'a>,
+  pub http_request: &'a mut Request,
   pub slugs: HashMap<String, String>,
 }
 
@@ -68,14 +74,14 @@ impl<'a> ServerRequest<'a> {
 }
 
 pub struct Server<'a> {
-  routes: Vec<Route>,
+  routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
 }
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
     let server = Server {
-      routes: Vec::new(),
+      routes: Arc::new(RwLock::new(Vec::new())),
       config,
     };
 
@@ -98,71 +104,11 @@ impl<'a> Server<'a> {
         continue;
       };
 
-      let mut reader = BufReader::new(&stream);
+      let routes = self.routes.clone();
 
-      loop {
-        let mut http_request = match Request::read_from_buffer(&stream, &mut reader) {
-          Ok(Some(request)) => request,
-          Ok(None) => break,
-          Err(error) => {
-            eprintln!("Failed to read incoming TcpStream: {error}");
-            continue;
-          }
-        };
-
-        let mut request_slugs: HashMap<String, String> = HashMap::new();
-        let request_method = http_request.method.clone();
-        let request_path = http_request.path.clone();
-        let close_connection = match http_request.headers.get_header("Connection") {
-          Some(value) => value == "close",
-          None => false,
-        };
-
-        println!("Received {request_method} request for {request_path}");
-
-        let route = self.routes.iter().find(|route| {
-          if route.method != request_method {
-            false
-          } else {
-            let match_result = route.matches(&request_path);
-
-            if let Some(slugs) = match_result {
-              request_slugs = slugs;
-              true
-            } else {
-              false
-            }
-          }
-        });
-
-        let mut request = ServerRequest {
-          http_request: &mut http_request,
-          slugs: request_slugs,
-        };
-
-        match route {
-          Some(route) => {
-            let mut response = Response::new();
-
-            (route.callback)(&mut request, &mut response);
-          }
-          None => {
-            println!("Route not found. Method: {request_method}, Path: {request_path}",);
-            let mut response = Response::new();
-
-            response.status_code = http::status_codes::StatusCode::Status404;
-            if let Err(error) = request.respond(&response) {
-              eprintln!(
-                "Failed to send 404 for {request_method} request for route {request_path}: {error}"
-              );
-            };
-          }
-        };
-
-        if close_connection {
-          break;
-        }
-      }
+      thread::spawn(move || {
+        Self::handle_connection(stream, routes);
+      });
     }
 
     Ok(())
@@ -170,12 +116,82 @@ impl<'a> Server<'a> {
 
   pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
   where
-    F: Fn(&mut ServerRequest, &mut Response) -> () + 'static,
+    F: Fn(&mut ServerRequest, &mut Response) + Send + Sync + 'static,
   {
-    self.routes.push(Route {
+    self.routes.write().unwrap().push(Route {
       path: Route::path_from_url(path),
       method: method,
-      callback: Box::new(on_request),
+      callback: Arc::new(on_request),
     })
+  }
+
+  fn handle_connection(stream: TcpStream, routes: Arc<RwLock<Vec<Route>>>) {
+    let mut reader = BufReader::new(&stream);
+    let routes = routes.read().unwrap();
+
+    loop {
+      let mut http_request = match Request::read_from_buffer(&stream, &mut reader) {
+        Ok(Some(request)) => request,
+        Ok(None) => break,
+        Err(error) => {
+          eprintln!("Failed to read incoming TcpStream: {error}");
+          continue;
+        }
+      };
+
+      let mut request_slugs: HashMap<String, String> = HashMap::new();
+      let request_method = http_request.method.clone();
+      let request_path = http_request.path.clone();
+
+      let close_connection = match http_request.headers.get_header("Connection") {
+        Some(value) => value == "close",
+        None => false,
+      };
+
+      println!("Received {request_method} request for {request_path}");
+
+      let route = routes.iter().find(|route| {
+        if route.method != request_method {
+          false
+        } else {
+          let match_result = route.matches(&request_path);
+
+          if let Some(slugs) = match_result {
+            request_slugs = slugs;
+            true
+          } else {
+            false
+          }
+        }
+      });
+
+      let mut request = ServerRequest {
+        http_request: &mut http_request,
+        slugs: request_slugs,
+      };
+
+      match route {
+        Some(route) => {
+          let mut response = Response::new();
+
+          (route.callback)(&mut request, &mut response);
+        }
+        None => {
+          println!("Route not found. Method: {request_method}, Path: {request_path}",);
+          let mut response = Response::new();
+
+          response.status_code = http::status_codes::StatusCode::Status404;
+          if let Err(error) = request.respond(&response) {
+            eprintln!(
+              "Failed to send 404 for {request_method} request for route {request_path}: {error}"
+            );
+          };
+        }
+      };
+
+      if close_connection {
+        break;
+      }
+    }
   }
 }

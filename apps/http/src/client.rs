@@ -22,7 +22,7 @@ impl Client {
     method: HTTPMethod,
     address: &str,
     headers: Option<Headers>,
-  ) -> Request<'_> {
+  ) -> Request {
     let url = Url::new(address);
 
     if let Ok(protocol) = url.protocol() {
