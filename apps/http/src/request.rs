@@ -52,7 +52,7 @@ impl<'a> Request<'a> {
     );
 
     if let Err(error) = self.stream.write_all(content.as_bytes()) {
-      return Err(String::from("Failed to write content to TcpStream"));
+      return Err(format!("Failed to write content to TcpStream: {error}"));
     };
 
     let mut response = [0; 4096];
@@ -62,8 +62,11 @@ impl<'a> Request<'a> {
     }
   }
 
-  pub fn read_from_stream(stream: &'a TcpStream) -> Result<Request<'a>, String> {
-    let mut buffer_reader = BufReader::new(stream);
+  pub fn read_from_buffer<R: BufRead>(
+    stream: &'a TcpStream,
+    reader: &mut R,
+  ) -> Result<Option<Request<'a>>, String> {
+    let mut buffer_reader = BufReader::new(reader);
     let mut lines = Vec::<String>::new();
 
     let mut headers = Headers::new();
@@ -89,6 +92,10 @@ impl<'a> Request<'a> {
       lines.push(line.trim().to_string());
       i += 1;
     }
+
+    if lines.is_empty() {
+      return Ok(None);
+    };
 
     let start_line: Vec<_> = lines[0].split(" ").collect();
 
@@ -123,6 +130,6 @@ impl<'a> Request<'a> {
       };
     }
 
-    Ok(request)
+    Ok(Some(request))
   }
 }
