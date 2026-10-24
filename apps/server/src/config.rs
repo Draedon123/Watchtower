@@ -17,7 +17,7 @@ impl Config {
         let value_index = i + 1;
 
         if value_index >= args.len() {
-          println!("Argument \"{}\" is missing value", arg);
+          eprintln!("Argument \"{}\" is missing value", arg);
           break;
         }
 
@@ -27,7 +27,7 @@ impl Config {
         match arg.as_str() {
           "--port" => {
             let port = value.parse::<u16>().unwrap_or_else(|_| {
-              println!("Failed to parse port \"{}\"", value);
+              eprintln!("Failed to parse port \"{}\"", value);
               DEFAULT_PORT
             });
 
@@ -37,7 +37,7 @@ impl Config {
             config.password = value.clone();
           }
           &_ => {
-            println!("Unknown argument \"{}\"", arg);
+            eprintln!("Unknown argument \"{}\"", arg);
           }
         };
       }

@@ -15,7 +15,7 @@ impl Config {
         let value_index = i + 1;
 
         if value_index >= args.len() {
-          println!("Argument \"{}\" is missing value", arg);
+          eprintln!("Argument \"{}\" is missing value", arg);
           break;
         }
 
@@ -30,7 +30,7 @@ impl Config {
             config.watchtower_url = value.clone();
           }
           &_ => {
-            println!("Unknown argument \"{}\"", arg);
+            eprintln!("Unknown argument \"{}\"", arg);
           }
         };
       }
