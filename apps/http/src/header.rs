@@ -18,7 +18,7 @@ impl Headers {
       return Err(format!("Received malformed header line: {line}"));
     };
 
-    let key = line_split.0;
+    let key = &line_split.0.to_lowercase();
     let value = line_split.1;
 
     self.set_header(key, value);
@@ -26,11 +26,13 @@ impl Headers {
   }
 
   pub fn get_header(&self, key: &str) -> Option<&String> {
-    self.headers.get(key)
+    self.headers.get(&key.to_lowercase())
   }
 
   pub fn set_header(&mut self, key: &str, value: &str) {
-    self.headers.insert(key.to_string(), value.to_string());
+    self
+      .headers
+      .insert(key.to_string().to_lowercase(), value.to_string());
   }
 }
 
