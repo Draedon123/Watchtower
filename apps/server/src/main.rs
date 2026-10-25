@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       match recent_data {
         Ok(data_entry) => {
-          response.set_content(&data_entry.data.to_string());
+          response.set_content(&data_entry.to_string());
           response.status_code = StatusCode::Status200;
         }
         Err(error) => {

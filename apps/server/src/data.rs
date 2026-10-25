@@ -1,14 +1,15 @@
 use std::collections::{HashMap, VecDeque};
+use std::fmt::Display;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub enum DataType {
   F32Value(f32),
 }
 
-impl ToString for DataType {
-  fn to_string(&self) -> String {
+impl Display for DataType {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      DataType::F32Value(value) => value.to_string(),
+      DataType::F32Value(value) => write!(f, "{value}"),
     }
   }
 }
@@ -122,5 +123,11 @@ impl Data {
     } else {
       false
     }
+  }
+}
+
+impl Display for DataEntry {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}\n{}", self.data, self.timestamp)
   }
 }

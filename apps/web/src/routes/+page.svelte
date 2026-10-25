@@ -21,7 +21,7 @@
       const cpu_usage_promises = machines.map(machine => fetch(`http://watchtowerapi.draedon.xyz/get/${machine}/cpu_usage`, {method: "POST"}).then(response => response.text()));
       const cpu_usages_raw = await Promise.all(cpu_usage_promises);
 
-      cpu_usages = cpu_usages_raw.map(usage => parseFloat(usage));
+      cpu_usages = cpu_usages_raw.map(usage => parseFloat(usage.split("\n")[0]));
     }, 5000);
   })
 
