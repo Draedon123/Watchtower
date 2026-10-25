@@ -2,9 +2,10 @@
   import { getCpuUsages, getMachines } from "$lib/request";
   import { onDestroy, onMount } from "svelte";
 
-  let machines: string[] = $state([]);
-  let cpuUsages: number[] = $state([]);
+  let machines: string[] | null = $state(null);
+  let cpuUsages: (number | null)[] = $state([]);
   let loop: NodeJS.Timeout | null = null;
+  let loadedFirstData = $state(false);
 
   function setIntervalImmediately(
     callback: () => void,
@@ -17,8 +18,15 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      machines = await getMachines();
-      cpuUsages = await getCpuUsages(machines);
+      machines = await getMachines().catch(() => null);
+      cpuUsages =
+        machines === null
+          ? []
+          : await getCpuUsages(machines).catch(() =>
+              new Array(machines?.length).fill(null)
+            );
+
+      loadedFirstData = true;
     }, 1000);
   });
 
@@ -33,9 +41,24 @@
 <h1>Watchtower</h1>
 
 <title>Watchtower</title>
-<!-- eslint-disable-next-line svelte/require-each-key -->
-{#each machines as machine, i}
-  <h1>{machine}</h1>
+{#if machines === null}
+  {#if loadedFirstData}
+    <p>Could not fetch machines. Perhaps the server is down?</p>
+  {:else}
+    <p>Loading data...</p>
+  {/if}
+{:else}
+  {#if machines.length === 0}
+    <p>No machines monitored!</p>
+  {:else}
+    {#each machines as machine, i (machine)}
+      <h1>{machine}</h1>
 
-  <p>CPU Usage: {(cpuUsages[i] * 100).toFixed(2)}%</p>
-{/each}
+      {#if cpuUsages[i] === null}
+        <p>Could not fetch CPU usage</p>
+      {:else}
+        <p>CPU Usage: {(cpuUsages[i] * 100).toFixed(2)}%</p>
+      {/if}
+    {/each}
+  {/if}
+{/if}

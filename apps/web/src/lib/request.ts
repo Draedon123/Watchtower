@@ -16,16 +16,21 @@ const GET_MACHINES_PATH = "get/machines";
 async function getMachines(): Promise<string[]> {
   const response = await post(GET_MACHINES_PATH);
 
-  return response.split("\n");
+  return response === "" ? [] : response.split("\n");
 }
 
-async function getCpuUsages(machines: string[]): Promise<number[]> {
+async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {
   const cpuUsagePromises = machines.map((machine) =>
-    post(`get/${machine}/cpu_usage`)
+    post(`get/${machine}/cpu_usage`).catch(() => null)
   );
 
   const cpuUsagesRaw = await Promise.all(cpuUsagePromises);
-  return cpuUsagesRaw.map((usage) => parseFloat(usage.split("\n")[0]));
+  return cpuUsagesRaw.map((usage) => {
+    const usageNumeric =
+      usage === null ? NaN : parseFloat(usage.split("\n")[0]);
+
+    return isNaN(usageNumeric) ? null : usageNumeric;
+  });
 }
 
 export { post, getMachines, getCpuUsages };
