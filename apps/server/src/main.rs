@@ -7,6 +7,7 @@ mod config;
 mod data;
 mod route;
 mod server;
+mod thread_pool;
 
 use http::method::HTTPMethod;
 use http::status_codes::StatusCode;

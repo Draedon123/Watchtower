@@ -1,11 +1,10 @@
-use crate::{config::Config, route::Route};
+use crate::{config::Config, route::Route, thread_pool::ThreadPool};
 use http::{method::HTTPMethod, request::Request, response::Response};
 use std::{
   collections::HashMap,
   io::BufReader,
   net::{TcpListener, TcpStream},
   sync::{Arc, RwLock},
-  thread,
 };
 
 pub struct ServerRequest<'a> {
@@ -22,6 +21,7 @@ impl<'a> ServerRequest<'a> {
 pub struct Server<'a> {
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
+  thread_pool: ThreadPool,
 }
 
 impl<'a> Server<'a> {
@@ -29,6 +29,7 @@ impl<'a> Server<'a> {
     let server = Server {
       routes: Arc::new(RwLock::new(Vec::new())),
       config,
+      thread_pool: ThreadPool::new(4),
     };
 
     Ok(server)
@@ -52,7 +53,7 @@ impl<'a> Server<'a> {
 
       let routes = self.routes.clone();
 
-      thread::spawn(move || {
+      self.thread_pool.execute(move || {
         Self::handle_connection(stream, routes);
       });
     }
