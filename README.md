@@ -1,4 +1,4 @@
-Software to monitor multiple linux machines
+Software to monitor multiple linux machines. Consists of an agent that runs on each machine that communicates with a central server. The server can then be queried and interfaced through a webpage. The agent and server both hinge on a custom-built HTTP library.
 
 # Usage
 
@@ -7,6 +7,7 @@ Software to monitor multiple linux machines
 - [Node.js](https://nodejs.org/en)
 - [pnpm](https://pnpm.io)
 - [Rust](https://rust-lang.org)
+- [Linux](https://www.linux.org) (for the agents)
 
 ## Building & Running from Source
 
@@ -25,5 +26,6 @@ Note: the agent only runs on Linux devices
 ### Web Interface
 
 1. `cd` into `apps/web`
-2. Run `pnpm i && pnpm build`
-3. Host the webpage located in `apps/web/build` with any method. One such method is to run `pnpm preview`
+2. Change the server address in `apps/web/src/lib/request.ts` to match the address and port of the server
+3. Run `pnpm i && pnpm build`
+4. Host the webpage located in `apps/web/build` with any method. One such method is to run `pnpm preview`
