@@ -1,21 +1,16 @@
-use config::Config;
 use http::header::Headers;
 use http::response::Response;
-use server::Server;
 use std::env;
 use std::sync::{Arc, RwLock};
-
-mod config;
-mod data;
-mod route;
-mod server;
-mod thread_pool;
 
 use http::method::HTTPMethod;
 use http::status_codes::StatusCode;
 
-use crate::data::{Data, DataType};
-use crate::server::ServerRequest;
+use watchtower_server::{
+  config::Config,
+  data::{Data, DataType},
+  server::{Server, ServerRequest},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
