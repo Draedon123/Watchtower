@@ -1,16 +1,28 @@
 <script lang="ts">
-  import Machine, { type MachineData } from "$lib/components/Machine.svelte";
-  import { getCpuUsages, getMachines } from "$lib/request";
+  import Machine, {
+    type MachineData,
+    type MemoryData,
+  } from "$lib/components/Machine.svelte";
+  import {
+    getCpuUsages,
+    getMachines,
+    getPhysicalMemory,
+    getSwapMemory,
+  } from "$lib/request";
   import { onDestroy, onMount } from "svelte";
 
   let machines: string[] | null = $state(null);
   let cpuUsages: (number | null)[] = $state([]);
+  let physicalMemory: (MemoryData | null)[] = $state([]);
+  let swapMemory: (MemoryData | null)[] = $state([]);
   let machineData: MachineData[] = $derived(
     machines === null
       ? []
       : (machines as string[]).map((name, i) => ({
           name,
           cpuUsage: cpuUsages[i],
+          physicalMemory: physicalMemory[i],
+          swapMemory: swapMemory[i],
         }))
   );
   let loop: NodeJS.Timeout | null = null;
@@ -28,10 +40,25 @@
   onMount(() => {
     loop = setIntervalImmediately(async () => {
       machines = await getMachines().catch(() => null);
+
       cpuUsages =
         machines === null
           ? []
           : await getCpuUsages(machines).catch(() =>
+              new Array(machines?.length).fill(null)
+            );
+
+      physicalMemory =
+        machines === null
+          ? []
+          : await getPhysicalMemory(machines).catch(() =>
+              new Array(machines?.length).fill(null)
+            );
+
+      swapMemory =
+        machines === null
+          ? []
+          : await getSwapMemory(machines).catch(() =>
               new Array(machines?.length).fill(null)
             );
 

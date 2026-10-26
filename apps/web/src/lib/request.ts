@@ -1,4 +1,5 @@
 import { dev } from "$app/env";
+import type { MemoryData } from "./components/Machine.svelte";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
@@ -33,4 +34,50 @@ async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {
   });
 }
 
-export { post, getMachines, getCpuUsages };
+async function getMemory(
+  machines: string[],
+  type: "physical" | "swap"
+): Promise<(MemoryData | null)[]> {
+  const key = type === "physical" ? "memory_physical" : "memory_swap";
+  const promises = machines.map((machine) =>
+    post(`get/${machine}/${key}`).catch(() => null)
+  );
+  const rawData = await Promise.all(promises);
+
+  return rawData.map((data) => {
+    if (data === "" || data === null) {
+      return null;
+    }
+
+    const split = data.split("\n");
+    const available_kib = parseInt(split[0]);
+    const total_kib = parseInt(split[1]);
+
+    console.log(available_kib / 1024 / 1024, total_kib / 1024 / 1024);
+
+    if (isNaN(available_kib) || isNaN(total_kib)) {
+      return null;
+    }
+
+    const memoryData: MemoryData = {
+      available_kib,
+      total_kib,
+    };
+
+    return memoryData;
+  });
+}
+
+async function getPhysicalMemory(
+  machines: string[]
+): Promise<(MemoryData | null)[]> {
+  return getMemory(machines, "physical");
+}
+
+async function getSwapMemory(
+  machines: string[]
+): Promise<(MemoryData | null)[]> {
+  return getMemory(machines, "swap");
+}
+
+export { post, getMachines, getCpuUsages, getPhysicalMemory, getSwapMemory };
