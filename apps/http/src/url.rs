@@ -54,12 +54,13 @@ impl Url {
     }
   }
 
-  fn host_port_and_path_query(&self) -> Result<(String, String), ()> {
-    match self.protocol_and_rest()?.1.split_once("/") {
+  fn host_port_and_path_query(&self) -> Result<(String, Option<String>), ()> {
+    let rest = self.protocol_and_rest()?.1;
+    match rest.split_once("/") {
       Some((host_and_port, path_and_query)) => {
-        Ok((host_and_port.to_string(), path_and_query.to_string()))
+        Ok((host_and_port.to_string(), Some(path_and_query.to_string())))
       }
-      None => return Err(()),
+      None => Ok((rest, None)),
     }
   }
 
@@ -72,7 +73,11 @@ impl Url {
   }
 
   fn path_and_query(&self) -> Result<(String, String), ()> {
-    let split = self.host_port_and_path_query()?.1;
+    let split = match self.host_port_and_path_query()?.1 {
+      Some(string) => string,
+      None => return Ok((String::new(), String::new())),
+    };
+
     match split.split_once("?") {
       Some((path, query)) => Ok((path.to_string(), query.to_string())),
       None => Ok((split.to_string(), String::new())),
@@ -84,5 +89,35 @@ impl Url {
       "http" => Some(80),
       _ => None,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::assert_matches;
+
+  use super::*;
+
+  #[test]
+  fn full_url() {
+    let url = Url::new("http://foo:123/bar?a=b,c=d");
+
+    assert_eq!(url.protocol().unwrap(), "http");
+    assert_eq!(url.host().unwrap(), "foo");
+    assert_eq!(url.port().unwrap(), 123);
+
+    let queries = url.query().unwrap();
+
+    assert_eq!(queries.get("a").unwrap(), "b");
+    assert_eq!(queries.get("c").unwrap(), "d");
+  }
+
+  #[test]
+  fn minimal_url() {
+    let url = Url::new("foo");
+
+    assert_matches!(url.protocol(), Err(()));
+    assert_eq!(url.host().unwrap(), "foo");
+    assert_eq!(url.query().unwrap().len(), 0);
   }
 }
