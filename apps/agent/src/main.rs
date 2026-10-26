@@ -1,6 +1,6 @@
 use std::{env, thread::sleep, time};
 
-use http::client::Client;
+use http::{client::Client, header::Headers};
 
 use crate::{
   config::Config,
@@ -15,6 +15,13 @@ fn main() {
   let config = Config::new(&args);
 
   let mut client = Client::new();
+  let mut headers = Headers::new();
+  headers
+    .set_header("Host", &config.watchtower_address)
+    .set_header("Authorization", &config.password);
+
+  client.default_headers = headers;
+
   loop_register(&config, &mut client);
 
   let mut cpu_usage = CpuUsage::new();

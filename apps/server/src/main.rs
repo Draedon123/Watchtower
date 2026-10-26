@@ -1,4 +1,5 @@
 use config::Config;
+use http::header::Headers;
 use server::Server;
 use std::env;
 use std::sync::{Arc, RwLock};
@@ -21,6 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut server = Server::new(&config)?;
   let data = Arc::new(RwLock::new(Data::new(10)));
 
+  let mut default_response_headers = Headers::new();
+  default_response_headers.set_header("Access-Control-Allow-Origin", "*");
+  server.set_default_response_headers(default_response_headers);
+
   server.route("/", HTTPMethod::Get(), |request, response| {
     response.status_code = StatusCode::Status200;
     if let Err(error) = request.respond(response) {
@@ -33,10 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "/get/[machine]/[key]",
     HTTPMethod::Post(),
     move |request, response| {
-      response
-        .headers
-        .set_header("Access-Control-Allow-Origin", "*");
-
       let machine = request.slugs.get("machine").unwrap().clone();
       let key = request.slugs.get("key").unwrap().clone();
 
@@ -65,10 +66,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "/get/machines",
     HTTPMethod::Post(),
     move |request, response| {
-      response
-        .headers
-        .set_header("Access-Control-Allow-Origin", "*");
-
       let data = data_reader_2.read().unwrap();
 
       response.status_code = StatusCode::Status200;
@@ -93,10 +90,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "/set/[machine]",
     HTTPMethod::Post(),
     move |request, response| {
-      response
-        .headers
-        .set_header("Access-Control-Allow-Origin", "*");
-
       let machine = request.slugs.get("machine").unwrap().clone();
       let password = match request.http_request.headers.get_header("Authorization") {
         Some(password) => password.clone(),
@@ -132,10 +125,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
     move |request, response| {
-      response
-        .headers
-        .set_header("Access-Control-Allow-Origin", "*");
-
       let content: Vec<_> = request.http_request.get_content().lines().collect();
       let password = match request.http_request.headers.get_header("Authorization") {
         Some(password) => password.clone(),

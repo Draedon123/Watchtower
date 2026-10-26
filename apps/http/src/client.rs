@@ -3,6 +3,8 @@ use std::net::TcpStream;
 use crate::{header::Headers, method::HTTPMethod, request::Request, url::Url};
 
 pub struct Client {
+  pub default_headers: Headers,
+
   stream: Option<TcpStream>,
   host: String,
   port: u16,
@@ -14,6 +16,7 @@ impl Client {
       stream: None,
       host: String::new(),
       port: 0,
+      default_headers: Headers::new(),
     }
   }
 
@@ -60,8 +63,10 @@ impl Client {
       request.method = method;
       request.path = path;
 
-      if let Some(headers) = headers {
-        request.headers = headers;
+      request.headers = match headers {
+        Some(headers) => Headers::apply_defaults(&self.default_headers, &headers),
+        // TODO: don't clone headers every time
+        None => self.default_headers.clone(),
       };
 
       Ok(request)

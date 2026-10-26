@@ -1,6 +1,6 @@
 use std::{thread::sleep, time};
 
-use http::{client::Client, header::Headers, method::HTTPMethod};
+use http::{client::Client, method::HTTPMethod};
 
 use crate::{config::Config, system::hostname::get_hostname};
 
@@ -18,15 +18,10 @@ pub fn try_register(config: &Config, client: &mut Client) -> Result<(), String> 
     }
   };
 
-  let mut headers = Headers::new();
-  headers
-    .set_header("Host", &config.watchtower_address)
-    .set_header("Authorization", &config.password);
-
   let mut connection = client.request(
     HTTPMethod::Post(),
     &format!("{}/set/{hostname}", config.watchtower_address),
-    Some(headers),
+    None,
   )?;
 
   connection.send()?;

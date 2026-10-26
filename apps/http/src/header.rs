@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+#[derive(Clone)]
 pub struct Headers {
   headers: HashMap<String, String>,
 }
@@ -36,6 +37,16 @@ impl Headers {
 
     self
   }
+
+  pub fn apply_defaults(defaults: &Headers, overwrites: &Headers) -> Headers {
+    let mut copy = defaults.clone();
+
+    for (key, value) in &overwrites.headers {
+      copy.set_header(key, value);
+    }
+
+    copy
+  }
 }
 
 impl Display for Headers {
@@ -50,5 +61,28 @@ impl Display for Headers {
     f.write_str(&stringified)?;
 
     Ok(())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_defaults() {
+    let mut default = Headers::new();
+    default.set_header("Foo", "Bar").set_header("a", "b");
+
+    let mut overwrites = Headers::new();
+    overwrites.set_header("Foo", "Baz");
+
+    let defaults_applied = Headers::apply_defaults(&default, &overwrites);
+
+    assert_eq!(
+      defaults_applied.get_header("Foo"),
+      Some(&String::from("Baz"))
+    );
+
+    assert_eq!(defaults_applied.get_header("a"), Some(&String::from("b")));
   }
 }

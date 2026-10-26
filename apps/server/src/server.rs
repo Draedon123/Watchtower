@@ -1,5 +1,5 @@
 use crate::{config::Config, route::Route, thread_pool::ThreadPool};
-use http::{method::HTTPMethod, request::Request, response::Response};
+use http::{header::Headers, method::HTTPMethod, request::Request, response::Response};
 use std::{
   collections::HashMap,
   io::BufReader,
@@ -19,6 +19,8 @@ impl<'a> ServerRequest<'a> {
 }
 
 pub struct Server<'a> {
+  pub default_response_headers: Arc<RwLock<Headers>>,
+
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
   thread_pool: ThreadPool,
@@ -30,6 +32,7 @@ impl<'a> Server<'a> {
       routes: Arc::new(RwLock::new(Vec::new())),
       config,
       thread_pool: ThreadPool::new(4),
+      default_response_headers: Arc::new(RwLock::new(Headers::new())),
     };
 
     Ok(server)
@@ -52,9 +55,10 @@ impl<'a> Server<'a> {
       };
 
       let routes = self.routes.clone();
+      let default_response_headers = self.default_response_headers.clone();
 
       self.thread_pool.execute(move || {
-        Self::handle_connection(stream, routes);
+        Self::handle_connection(stream, routes, default_response_headers);
       });
     }
 
@@ -72,7 +76,15 @@ impl<'a> Server<'a> {
     })
   }
 
-  fn handle_connection(stream: TcpStream, routes: Arc<RwLock<Vec<Route>>>) {
+  pub fn set_default_response_headers(&mut self, headers: Headers) {
+    self.default_response_headers = Arc::new(RwLock::new(headers));
+  }
+
+  fn handle_connection(
+    stream: TcpStream,
+    routes: Arc<RwLock<Vec<Route>>>,
+    default_response_headers: Arc<RwLock<Headers>>,
+  ) {
     let mut reader = BufReader::new(&stream);
     let routes = routes.read().unwrap();
 
@@ -120,6 +132,8 @@ impl<'a> Server<'a> {
       match route {
         Some(route) => {
           let mut response = Response::new();
+
+          response.headers = default_response_headers.read().unwrap().clone();
 
           (route.callback)(&mut request, &mut response);
         }

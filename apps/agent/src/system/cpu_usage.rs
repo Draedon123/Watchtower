@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use http::{client::Client, header::Headers, method::HTTPMethod};
+use http::{client::Client, method::HTTPMethod};
 
 use crate::{config::Config, system::hostname::get_hostname};
 
@@ -45,15 +45,10 @@ impl CpuUsage {
       }
     };
 
-    let mut headers = Headers::new();
-    headers
-      .set_header("Host", &config.watchtower_address)
-      .set_header("Authorization", &config.password);
-
     let mut connection = client.request(
       HTTPMethod::Post(),
       &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
-      Some(headers),
+      None,
     )?;
 
     let usage = self.get_usage()?;
