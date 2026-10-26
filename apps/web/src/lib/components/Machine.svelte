@@ -40,9 +40,8 @@
   {@const totalMemory_gib = data.physicalMemory.total_kib / 1024 / 1024}
   {@const memoryUsagePercent = (usedMemory_gib / totalMemory_gib) * 100}
   <p>
-    Physical Memory: {usedMemory_gib}/{totalMemory_gib} GiB ({memoryUsagePercent.toFixed(
-      2
-    )}%)
+    Physical Memory: {usedMemory_gib.toFixed(2)}/{totalMemory_gib.toFixed(2)} GiB
+    ({memoryUsagePercent.toFixed(2)}%)
   </p>
 {/if}
 
@@ -54,7 +53,7 @@
   {@const totalMemory_gib = data.swapMemory.total_kib / 1024 / 1024}
   {@const memoryUsagePercent = (usedMemory_gib / totalMemory_gib) * 100}
   <p>
-    Swap Memory: {usedMemory_gib}/{totalMemory_gib} GiB ({memoryUsagePercent.toFixed(
+    Swap Memory: {usedMemory_gib.toFixed(2)}/{totalMemory_gib.toFixed(2)} GiB ({memoryUsagePercent.toFixed(
       2
     )}%)
   </p>
