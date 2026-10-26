@@ -1,6 +1,7 @@
 use std::fs::read_to_string;
 
 use http::{client::Client, method::HTTPMethod};
+use watchtower_server::data::DataEntry;
 
 use crate::{config::Config, system::hostname::get_hostname};
 
@@ -52,8 +53,9 @@ impl CpuUsage {
     )?;
 
     let usage = self.get_usage()?;
+    let data = DataEntry::from(usage);
 
-    connection.set_content(&format!("{usage}"));
+    connection.set_content(&format!("{data}"));
     connection.send()?;
 
     Ok(())

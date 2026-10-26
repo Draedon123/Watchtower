@@ -28,7 +28,7 @@ async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {
   const cpuUsagesRaw = await Promise.all(cpuUsagePromises);
   return cpuUsagesRaw.map((usage) => {
     const usageNumeric =
-      usage === null ? NaN : parseFloat(usage.split("\n")[0]);
+      usage === null ? NaN : parseFloat(usage.split("\n")[1]);
 
     return isNaN(usageNumeric) ? null : usageNumeric;
   });
@@ -49,7 +49,8 @@ async function getMemory(
       return null;
     }
 
-    const split = data.split("\n");
+    const lines = data.split("\n");
+    const split = lines[1].split(",");
     const available_kib = parseInt(split[0]);
     const total_kib = parseInt(split[1]);
 

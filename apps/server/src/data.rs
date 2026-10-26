@@ -4,12 +4,47 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub enum DataType {
   F32Value(f32),
+  Vec2U64Value((u64, u64)),
+  Unknown(String),
+}
+
+impl DataType {
+  pub fn get_type_string(&self) -> &str {
+    match self {
+      DataType::F32Value(_) => "f32",
+      DataType::Vec2U64Value(_) => "vec2u64",
+      DataType::Unknown(_) => "unknown",
+    }
+  }
 }
 
 impl Display for DataType {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let type_string = self.get_type_string();
+
     match self {
-      DataType::F32Value(value) => write!(f, "{value}"),
+      DataType::F32Value(value) => write!(f, "{type_string}\n{value}"),
+      DataType::Vec2U64Value((value_1, value_2)) => write!(f, "{type_string}\n{value_1},{value_2}"),
+      DataType::Unknown(value) => write!(f, "{type_string}\n{value}"),
+    }
+  }
+}
+
+impl From<(&str, &str)> for DataType {
+  fn from((value_type, value): (&str, &str)) -> Self {
+    match value_type {
+      "f32" => match value.parse::<f32>() {
+        Ok(value) => DataType::F32Value(value),
+        Err(_) => DataType::Unknown(value_type.to_owned()),
+      },
+      "vec2u64" => match value.split_once(",") {
+        Some((value_1, value_2)) => match (value_1.parse::<u64>(), value_2.parse::<u64>()) {
+          (Ok(value_1), Ok(value_2)) => DataType::Vec2U64Value((value_1, value_2)),
+          _ => DataType::Unknown(value.to_owned()),
+        },
+        None => DataType::Unknown(value.to_owned()),
+      },
+      _ => DataType::Unknown(value.to_owned()),
     }
   }
 }
@@ -17,6 +52,39 @@ impl Display for DataType {
 pub struct DataEntry {
   pub data: DataType,
   pub timestamp: u64,
+}
+
+impl DataEntry {
+  fn get_current_time() -> u64 {
+    SystemTime::now()
+      .duration_since(UNIX_EPOCH)
+      .unwrap()
+      .as_secs()
+  }
+}
+
+impl From<f32> for DataEntry {
+  fn from(value: f32) -> DataEntry {
+    DataEntry {
+      data: DataType::F32Value(value),
+      timestamp: DataEntry::get_current_time(),
+    }
+  }
+}
+
+impl From<(u64, u64)> for DataEntry {
+  fn from(value: (u64, u64)) -> DataEntry {
+    DataEntry {
+      data: DataType::Vec2U64Value(value),
+      timestamp: DataEntry::get_current_time(),
+    }
+  }
+}
+
+impl Display for DataEntry {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}\n{}", self.data, self.timestamp)
+  }
 }
 
 pub struct Data {
@@ -71,15 +139,9 @@ impl Data {
       values.pop_back();
     }
 
-    let timestamp = if let Ok(timestamp) = SystemTime::now().duration_since(UNIX_EPOCH) {
-      timestamp
-    } else {
-      return Err(String::from("Failed to get current time"));
-    };
-
     let data_entry = DataEntry {
       data: data_value,
-      timestamp: timestamp.as_secs(),
+      timestamp: DataEntry::get_current_time(),
     };
 
     values.push_front(data_entry);
@@ -123,11 +185,5 @@ impl Data {
     } else {
       false
     }
-  }
-}
-
-impl Display for DataEntry {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}\n{}", self.data, self.timestamp)
   }
 }

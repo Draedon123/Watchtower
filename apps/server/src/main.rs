@@ -124,9 +124,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let machine = request.slugs.get("machine").unwrap();
       let key = request.slugs.get("key").unwrap();
 
-      let value = if content.is_empty() { "" } else { content[0] };
+      let value_type = if content.is_empty() { "" } else { content[0] };
+      let value = if content.is_empty() { "" } else { content[1] };
+      let data = DataType::from((value_type, value));
 
-      let mut data = match data_writer_2.write() {
+      let mut all_data = match data_writer_2.write() {
         Ok(data) => data,
         Err(error) => {
           response.status_code = StatusCode::Status500;
@@ -137,19 +139,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       };
 
-      match value.parse::<f32>() {
-        Ok(value) => {
+      match data {
+        DataType::F32Value(value) =>{
           response.status_code = StatusCode::Status200;
 
-          if let Err(error) = data.set_data(machine, key, DataType::F32Value(value)) {
+          if let Err(error) = all_data.set_data(machine, key, DataType::F32Value(value)) {
             eprintln!(
               "Failed to set f32 value of \"{key}\"=\"{value}\" for machine \"{machine}\": {error}"
             );
           };
         }
-        Err(_) => {
+        DataType::Vec2U64Value(value) =>{
+          response.status_code = StatusCode::Status200;
+
+          if let Err(error) = all_data.set_data(machine, key, DataType::Vec2U64Value(value)) {
+            eprintln!(
+              "Failed to set vec2u64 value of \"{key}\"=\"({}, {})\" for machine \"{machine}\": {error}", value.0, value.1
+            );
+          };
+        }
+        DataType::Unknown(value) => {
           response.status_code = StatusCode::Status400;
-          response.set_content("Invalid value");
+          response.set_content(&format!("Invalid value \"{value}\""));
         }
       };
 

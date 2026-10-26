@@ -1,6 +1,7 @@
 use std::{fmt::Display, fs::read_to_string};
 
 use http::{client::Client, method::HTTPMethod};
+use watchtower_server::data::DataEntry;
 
 use crate::{config::Config, system::hostname::get_hostname};
 
@@ -71,7 +72,7 @@ impl Memory {
     )?;
 
     let data = match self.get_data()? {
-      Some(data) => data.to_string(),
+      Some(data) => (DataEntry::from((data.available_kib, data.total_kib))).to_string(),
       None => String::new(),
     };
 
