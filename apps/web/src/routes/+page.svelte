@@ -1,9 +1,18 @@
 <script lang="ts">
+  import Machine, { type MachineData } from "$lib/components/Machine.svelte";
   import { getCpuUsages, getMachines } from "$lib/request";
   import { onDestroy, onMount } from "svelte";
 
   let machines: string[] | null = $state(null);
   let cpuUsages: (number | null)[] = $state([]);
+  let machineData: MachineData[] = $derived(
+    machines === null
+      ? []
+      : (machines as string[]).map((name, i) => ({
+          name,
+          cpuUsage: cpuUsages[i],
+        }))
+  );
   let loop: NodeJS.Timeout | null = null;
   let loadedFirstData = $state(false);
 
@@ -52,13 +61,7 @@
     <p>No machines monitored!</p>
   {:else}
     {#each machines as machine, i (machine)}
-      <h1>{machine}</h1>
-
-      {#if cpuUsages[i] === null}
-        <p>Could not fetch CPU usage</p>
-      {:else}
-        <p>CPU Usage: {(cpuUsages[i] * 100).toFixed(2)}%</p>
-      {/if}
+      <Machine {...machineData[i]} />
     {/each}
   {/if}
 {/if}
