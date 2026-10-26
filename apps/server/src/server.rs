@@ -31,7 +31,7 @@ impl<'a> Server<'a> {
     let server = Server {
       routes: Arc::new(RwLock::new(Vec::new())),
       config,
-      thread_pool: ThreadPool::new(4),
+      thread_pool: ThreadPool::new(config.num_threads),
       default_response_headers: Arc::new(RwLock::new(Headers::new())),
     };
 
@@ -44,7 +44,10 @@ impl<'a> Server<'a> {
 
     let listener = TcpListener::bind(&server_address)?;
 
-    println!("Opened server on {server_address}");
+    println!(
+      "Opened server on {server_address} with {} threads",
+      self.thread_pool.num_threads
+    );
 
     for stream in listener.incoming() {
       let stream = if let Ok(stream) = stream {

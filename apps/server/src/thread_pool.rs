@@ -32,6 +32,7 @@ impl Worker {
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
 pub struct ThreadPool {
+  pub num_threads: usize,
   workers: Vec<Worker>,
   sender: Option<mpsc::Sender<Job>>,
 }
@@ -52,6 +53,7 @@ impl ThreadPool {
     ThreadPool {
       workers,
       sender: Some(sender),
+      num_threads,
     }
   }
 

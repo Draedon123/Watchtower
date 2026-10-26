@@ -14,7 +14,7 @@ Software to monitor multiple linux machines. Consists of an agent that runs on e
 ### Server
 
 1. `cd` into `apps/server`
-2. Run `cargo run -r -- --password "YOUR_PASSWORD"`
+2. Run `cargo run -r -- --password "YOUR_PASSWORD" --threads THREAD_COUNT`. `--threads THREAD_COUNT` is optional. `THREAD_COUNT` must be an integer greater than 0 and defaults to 4.
 
 ### Agent
 
