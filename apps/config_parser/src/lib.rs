@@ -32,3 +32,26 @@ pub fn parse_args(args: &[String]) -> (HashMap<String, String>, HashSet<String>,
 
   (config_args, flags, rest)
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn full_parse() {
+    let args = [
+      String::from("--foo"),
+      String::from("bar"),
+      String::from("-flag"),
+      String::from("baz"),
+      String::from("--invalid"),
+    ];
+
+    let (config_args, flags, rest) = parse_args(&args);
+
+    assert_eq!(config_args.get("foo"), Some(&String::from("bar")));
+    assert!(flags.contains("flag"));
+    assert!(rest.contains(&String::from("baz")));
+    assert_eq!(config_args.len(), 1);
+  }
+}
