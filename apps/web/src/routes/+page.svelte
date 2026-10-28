@@ -40,6 +40,7 @@
   onMount(() => {
     loop = setIntervalImmediately(async () => {
       machines = await getMachines().catch(() => null);
+      loadedFirstData = true;
 
       cpuUsages =
         machines === null
@@ -61,8 +62,6 @@
           : await getSwapMemory(machines).catch(() =>
               new Array(machines?.length).fill(null)
             );
-
-      loadedFirstData = true;
     }, 1000);
   });
 
