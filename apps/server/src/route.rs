@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::TcpStream, sync::Arc};
 
 use http::{method::HTTPMethod, response::Response};
 
@@ -12,7 +12,7 @@ pub enum URLSection {
 pub struct Route {
   pub method: HTTPMethod,
   pub path: Vec<URLSection>,
-  pub callback: Arc<dyn Fn(&mut ServerRequest, &mut Response) + Send + Sync>,
+  pub callback: Arc<dyn Fn(&mut ServerRequest, &mut Response, &TcpStream) + Send + Sync>,
 }
 
 impl Route {

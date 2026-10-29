@@ -89,6 +89,7 @@ impl Display for DataEntry {
 
 pub struct Data {
   machine_data: HashMap<String, HashMap<String, VecDeque<DataEntry>>>,
+  machine_by_connection: HashMap<String, String>,
   max_values_per_key: usize,
 }
 
@@ -118,6 +119,7 @@ impl Data {
   pub fn new(max_values_per_key: usize) -> Data {
     Data {
       machine_data: HashMap::new(),
+      machine_by_connection: HashMap::new(),
       max_values_per_key,
     }
   }
@@ -176,14 +178,28 @@ impl Data {
     self.machine_data.keys().collect()
   }
 
-  pub fn register_machine(&mut self, machine: &str) -> bool {
+  pub fn register_machine(&mut self, ip: String, machine: &str) -> bool {
     let machine = machine.to_string();
+
+    self.machine_by_connection.insert(ip, machine.clone());
 
     if !self.machine_data.contains_key(&machine) {
       self.machine_data.insert(machine, HashMap::new());
       true
     } else {
       false
+    }
+  }
+
+  pub fn unregister_machine(&mut self, ip: &str) -> Option<String> {
+    let machine = self.machine_by_connection.remove(ip);
+
+    match machine {
+      Some(machine) => {
+        self.machine_data.remove(&machine);
+        Some(machine)
+      }
+      None => None,
     }
   }
 }

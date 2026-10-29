@@ -24,6 +24,7 @@ pub struct Server<'a> {
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
   thread_pool: ThreadPool,
+  on_connection_close: Arc<Option<Box<dyn Fn(TcpStream) + Send + Sync>>>,
 }
 
 impl<'a> Server<'a> {
@@ -33,6 +34,7 @@ impl<'a> Server<'a> {
       config,
       thread_pool: ThreadPool::new(config.num_threads),
       default_response_headers: Arc::new(RwLock::new(Headers::new())),
+      on_connection_close: Arc::new(None),
     };
 
     Ok(server)
@@ -59,9 +61,15 @@ impl<'a> Server<'a> {
 
       let routes = self.routes.clone();
       let default_response_headers = self.default_response_headers.clone();
+      let on_connection_close = self.on_connection_close.clone();
 
       self.thread_pool.execute(move || {
-        Self::handle_connection(stream, routes, default_response_headers);
+        Self::handle_connection(
+          stream,
+          routes,
+          default_response_headers,
+          on_connection_close,
+        );
       });
     }
 
@@ -70,7 +78,7 @@ impl<'a> Server<'a> {
 
   pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
   where
-    F: Fn(&mut ServerRequest, &mut Response) + Send + Sync + 'static,
+    F: Fn(&mut ServerRequest, &mut Response, &TcpStream) + Send + Sync + 'static,
   {
     self.routes.write().unwrap().push(Route {
       path: Route::path_from_url(path),
@@ -83,10 +91,18 @@ impl<'a> Server<'a> {
     self.default_response_headers = Arc::new(RwLock::new(headers));
   }
 
+  pub fn set_on_connection_close<F>(&mut self, callback: F)
+  where
+    F: Fn(TcpStream) + Send + Sync + 'static,
+  {
+    self.on_connection_close = Arc::new(Some(Box::new(callback)));
+  }
+
   fn handle_connection(
     stream: TcpStream,
     routes: Arc<RwLock<Vec<Route>>>,
     default_response_headers: Arc<RwLock<Headers>>,
+    on_connection_close: Arc<Option<Box<dyn Fn(TcpStream) + Send + Sync>>>,
   ) {
     let mut reader = BufReader::new(&stream);
     let routes = routes.read().unwrap();
@@ -132,13 +148,13 @@ impl<'a> Server<'a> {
         slugs: request_slugs,
       };
 
+      let mut response = Response::new();
+
       match route {
         Some(route) => {
-          let mut response = Response::new();
-
           response.headers = default_response_headers.read().unwrap().clone();
 
-          (route.callback)(&mut request, &mut response);
+          (route.callback)(&mut request, &mut response, &stream);
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
@@ -157,5 +173,9 @@ impl<'a> Server<'a> {
         break;
       }
     }
+
+    if let Some(callback) = Option::as_ref(&on_connection_close) {
+      callback(stream);
+    };
   }
 }

@@ -23,9 +23,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   default_response_headers.set_header("Access-Control-Allow-Origin", "*");
   server.set_default_response_headers(default_response_headers);
 
+  let data_writer_1 = data.clone();
+  server.set_on_connection_close(move |stream| {
+    let ip = stream.peer_addr().unwrap().to_string();
+
+    let machine = data_writer_1.write().unwrap().unregister_machine(&ip);
+
+    match machine {
+      Some(machine) => println!("Successfully unregistered {machine} ({ip})"),
+      None => println!("Failed to unregister machine from ip: {ip}"),
+    }
+  });
+
   let server_password = Arc::new(config.password.clone());
 
-  server.route("/", HTTPMethod::Get(), |request, response| {
+  server.route("/", HTTPMethod::Get(), |request, response, _| {
     response.status_code = StatusCode::Status200;
 
     try_respond(request, response);
@@ -35,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   server.route(
     "/get/[machine]/[key]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, response, _| {
       let machine = request.slugs.get("machine").unwrap();
       let key = request.slugs.get("key").unwrap();
 
@@ -61,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   server.route(
     "/get/machines",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, response, _| {
       let data = data_reader_2.read().unwrap();
 
       response.status_code = StatusCode::Status200;
@@ -78,18 +90,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     },
   );
 
-  let data_writer_1 = data.clone();
+  let data_writer_2 = data.clone();
   let server_password_1 = server_password.clone();
   server.route(
     "/set/[machine]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, response, stream| {
       if !is_authenticated(request, response, &server_password_1) {
         return;
       };
 
       let machine = request.slugs.get("machine").unwrap();
-      let mut data = match data_writer_1.write() {
+      let mut data = match data_writer_2.write() {
         Ok(data) => data,
         Err(error) => {
           response.status_code = StatusCode::Status500;
@@ -100,22 +112,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
       };
 
-      response.status_code = if data.register_machine(machine) {
-        StatusCode::Status200
-      } else {
-        StatusCode::Status400
-      };
+      response.status_code =
+        if data.register_machine(stream.peer_addr().unwrap().to_string(), machine) {
+          StatusCode::Status200
+        } else {
+          StatusCode::Status400
+        };
 
       try_respond(request, response);
     },
   );
 
-  let data_writer_2 = data.clone();
+  let data_writer_3 = data.clone();
   let server_password_2 = server_password.clone();
   server.route(
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, response, _| {
       if !is_authenticated(request, response, &server_password_2) {
         return;
       };
@@ -128,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       let value = if content.is_empty() { "" } else { content[1] };
       let data = DataType::from((value_type, value));
 
-      let mut all_data = match data_writer_2.write() {
+      let mut all_data = match data_writer_3.write() {
         Ok(data) => data,
         Err(error) => {
           response.status_code = StatusCode::Status500;
