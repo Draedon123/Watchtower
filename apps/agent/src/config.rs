@@ -1,8 +1,15 @@
 use config_parser::parse_args;
 
+pub enum RunMode {
+  Normal,
+  Test(usize),
+  Unknown(String),
+}
+
 pub struct Config {
   pub password: String,
   pub watchtower_address: String,
+  pub mode: RunMode,
 }
 
 impl Config {
@@ -22,9 +29,18 @@ impl Config {
       None => String::new(),
     };
 
+    let mode = match arguments.get("test-instances") {
+      Some(string) => match string.parse::<usize>() {
+        Ok(num_test_instances) => RunMode::Test(num_test_instances),
+        Err(_) => RunMode::Unknown(string.to_string()),
+      },
+      None => RunMode::Normal,
+    };
+
     Config {
       password,
       watchtower_address,
+      mode,
     }
   }
 }

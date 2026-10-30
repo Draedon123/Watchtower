@@ -3,7 +3,7 @@ use std::{fmt::Display, fs::read_to_string};
 use http::{client::Client, method::HTTPMethod};
 use watchtower_server::data::DataEntry;
 
-use crate::{config::Config, system::hostname::get_hostname};
+use crate::{config::Config, system::hostname::HostnameFetcher};
 
 pub enum MemoryType {
   Physical,
@@ -44,17 +44,21 @@ impl Display for MemoryData {
   }
 }
 
-pub struct Memory {
+pub struct Memory<'a> {
   pub memory_type: MemoryType,
+  hostname_fetcher: &'a HostnameFetcher,
 }
 
-impl Memory {
-  pub fn new(memory_type: MemoryType) -> Memory {
-    Memory { memory_type }
+impl<'a> Memory<'a> {
+  pub fn new(memory_type: MemoryType, hostname_fetcher: &'a HostnameFetcher) -> Memory<'a> {
+    Memory {
+      memory_type,
+      hostname_fetcher,
+    }
   }
 
   pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
-    let hostname = match get_hostname() {
+    let hostname = match self.hostname_fetcher.get_hostname() {
       Ok(hostname) => hostname,
       Err(error) => {
         return Err(format!("Failed to get device hostname: {error}"));

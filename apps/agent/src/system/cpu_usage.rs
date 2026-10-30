@@ -3,20 +3,22 @@ use std::fs::read_to_string;
 use http::{client::Client, method::HTTPMethod};
 use watchtower_server::data::DataEntry;
 
-use crate::{config::Config, system::hostname::get_hostname};
+use crate::{config::Config, system::hostname::HostnameFetcher};
 
-pub struct CpuUsage {
+pub struct CpuUsage<'a> {
   last_total: u64,
   last_idle: u64,
+  hostname_fetcher: &'a HostnameFetcher,
 }
 
-impl CpuUsage {
-  pub fn new() -> CpuUsage {
+impl<'a> CpuUsage<'a> {
+  pub fn new(hostname_fetcher: &'a HostnameFetcher) -> CpuUsage<'a> {
     let (total, idle) = CpuUsage::read_cpu_times().unwrap_or((0, 0));
 
     CpuUsage {
       last_total: total,
       last_idle: idle,
+      hostname_fetcher,
     }
   }
 
@@ -39,7 +41,7 @@ impl CpuUsage {
   }
 
   pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
-    let hostname = match get_hostname() {
+    let hostname = match self.hostname_fetcher.get_hostname() {
       Ok(hostname) => hostname,
       Err(error) => {
         return Err(format!("Failed to get device hostname: {error}"));
