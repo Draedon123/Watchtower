@@ -54,8 +54,6 @@ async function getMemory(
     const available_kib = parseInt(split[0]);
     const total_kib = parseInt(split[1]);
 
-    console.log(available_kib / 1024 / 1024, total_kib / 1024 / 1024);
-
     if (isNaN(available_kib) || isNaN(total_kib)) {
       return null;
     }
