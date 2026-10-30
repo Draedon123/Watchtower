@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dev } from "$app/env";
   import Machine, {
     type MachineData,
     type MemoryData,
@@ -73,21 +74,46 @@
   });
 </script>
 
+<title>Watchtower</title>
+
 <h1>Watchtower</h1>
 
-<title>Watchtower</title>
-{#if machines === null}
-  {#if loadedFirstData}
-    <p>Could not fetch machines. Perhaps the server is down?</p>
+<div class="machines">
+  {#if machines === null}
+    {#if loadedFirstData}
+      <p>Could not fetch machines. Perhaps the server is down?</p>
+    {:else}
+      <p>Loading data...</p>
+    {/if}
   {:else}
-    <p>Loading data...</p>
+    {#if machines.length === 0}
+      <p>No machines monitored!</p>
+    {:else}
+      {#each machines as machine, i (machine)}
+        <Machine {...machineData[i]} />
+        {#if dev}
+          <Machine {...machineData[i]} />
+          <Machine {...machineData[i]} />
+          <Machine {...machineData[i]} />
+          <Machine {...machineData[i]} />
+          <Machine {...machineData[i]} />
+          <Machine {...machineData[i]} />
+        {/if}
+      {/each}
+    {/if}
   {/if}
-{:else}
-  {#if machines.length === 0}
-    <p>No machines monitored!</p>
-  {:else}
-    {#each machines as machine, i (machine)}
-      <Machine {...machineData[i]} />
-    {/each}
-  {/if}
-{/if}
+</div>
+
+<style lang="scss">
+  h1 {
+    text-align: center;
+  }
+
+  .machines {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+
+    gap: 10px 20px;
+  }
+</style>
