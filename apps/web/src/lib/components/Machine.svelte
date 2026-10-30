@@ -8,12 +8,14 @@
     available_kib: number;
   };
 
-  type MachineData = Nullable<{
-    /** 0 - 1*/
-    cpuUsage: number;
-    physicalMemory: MemoryData;
-    swapMemory: MemoryData;
-  }> & { name: string };
+  type MachineData = Partial<
+    Nullable<{
+      /** 0 - 1*/
+      cpuUsage: number;
+      physicalMemory: MemoryData;
+      swapMemory: MemoryData;
+    }>
+  > & { name: string };
 
   export type { MachineData, MemoryData };
 </script>
@@ -24,13 +26,13 @@
 
 <h1>{data.name}</h1>
 
-{#if data.cpuUsage === null}
+{#if !data.cpuUsage}
   <p>Could not fetch CPU usage</p>
 {:else}
   <p>CPU Usage: {(data.cpuUsage * 100).toFixed(2)}%</p>
 {/if}
 
-{#if data.physicalMemory === null}
+{#if !data.physicalMemory}
   <p>Could not fetch physical memory</p>
 {:else}
   {@const usedMemory_gib =
@@ -45,7 +47,7 @@
   </p>
 {/if}
 
-{#if data.swapMemory === null}
+{#if !data.swapMemory}
   <p>Could not fetch swap memory</p>
 {:else}
   {@const usedMemory_gib =
