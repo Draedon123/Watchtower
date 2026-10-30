@@ -3,3 +3,15 @@
 </script>
 
 {@render children()}
+
+<style lang="scss">
+  :global {
+    body {
+      background-color: black;
+    }
+
+    * {
+      color: white;
+    }
+  }
+</style>
