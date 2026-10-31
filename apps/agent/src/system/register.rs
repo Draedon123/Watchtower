@@ -22,7 +22,6 @@ pub fn try_register(
     }
   };
 
-  println!("Registering {hostname}");
   let mut connection = client.request(
     HTTPMethod::Post(),
     &format!("{}/set/{hostname}", config.watchtower_address),

@@ -58,11 +58,37 @@ impl<'a> Memory<'a> {
   }
 
   pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
-    let hostname = match self.hostname_fetcher.get_hostname() {
+    let data = match self.get_data()? {
+      Some(data) => Some(data),
+      None => None,
+    };
+
+    Memory::send_data_to_watchtower(
+      &self.hostname_fetcher,
+      &self.memory_type,
+      data,
+      config,
+      client,
+    )
+  }
+
+  pub fn send_data_to_watchtower(
+    hostname_fetcher: &'a HostnameFetcher,
+    memory_type: &MemoryType,
+    data: Option<MemoryData>,
+    config: &Config,
+    client: &mut Client,
+  ) -> Result<(), String> {
+    let hostname = match hostname_fetcher.get_hostname() {
       Ok(hostname) => hostname,
       Err(error) => {
         return Err(format!("Failed to get device hostname: {error}"));
       }
+    };
+
+    let data = match data {
+      Some(data) => (DataEntry::from((data.available_kib, data.total_kib))).to_string(),
+      None => String::new(),
     };
 
     let mut connection = client.request(
@@ -70,15 +96,10 @@ impl<'a> Memory<'a> {
       &format!(
         "{}/set/{hostname}/{}",
         config.watchtower_address,
-        self.memory_type.watchtower_path()
+        memory_type.watchtower_path()
       ),
       None,
     )?;
-
-    let data = match self.get_data()? {
-      Some(data) => (DataEntry::from((data.available_kib, data.total_kib))).to_string(),
-      None => String::new(),
-    };
 
     connection.set_content(&data);
     connection.send()?;

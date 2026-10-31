@@ -7,3 +7,4 @@ edition = "2024"
 http = { path = "../http" }
 config_parser = { path = "../config_parser" }
 watchtower-server = { path = "../server" }
+rand = "0.10.3"

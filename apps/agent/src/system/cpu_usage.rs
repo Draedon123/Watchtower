@@ -41,7 +41,18 @@ impl<'a> CpuUsage<'a> {
   }
 
   pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
-    let hostname = match self.hostname_fetcher.get_hostname() {
+    let usage = self.get_usage()?;
+
+    CpuUsage::send_data_to_watchtower(&self.hostname_fetcher, usage, config, client)
+  }
+
+  pub fn send_data_to_watchtower(
+    hostname_fetcher: &'a HostnameFetcher,
+    usage: f32,
+    config: &Config,
+    client: &mut Client,
+  ) -> Result<(), String> {
+    let hostname = match hostname_fetcher.get_hostname() {
       Ok(hostname) => hostname,
       Err(error) => {
         return Err(format!("Failed to get device hostname: {error}"));
@@ -54,7 +65,6 @@ impl<'a> CpuUsage<'a> {
       None,
     )?;
 
-    let usage = self.get_usage()?;
     let data = DataEntry::from(usage);
 
     connection.set_content(&format!("{data}"));
