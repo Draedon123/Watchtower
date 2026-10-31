@@ -2,6 +2,8 @@ use http::header::Headers;
 use http::response::Response;
 use std::env;
 use std::sync::{Arc, RwLock};
+use watchtower_server::config::RunMode;
+use watchtower_server::help::display_help_message;
 
 use http::method::HTTPMethod;
 use http::status_codes::StatusCode;
@@ -15,6 +17,12 @@ use watchtower_server::{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
+
+  if let RunMode::Help = config.mode {
+    display_help_message();
+
+    return Ok(());
+  };
 
   let mut server = Server::new(&config)?;
   let data = Arc::new(RwLock::new(Data::new(10)));

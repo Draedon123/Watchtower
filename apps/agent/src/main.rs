@@ -4,6 +4,7 @@ use http::{client::Client, header::Headers};
 
 use watchtower_agent::{
   config::{Config, RunMode},
+  help::display_help_message,
   system::{
     cpu_usage::CpuUsage,
     hostname::HostnameFetcher,
@@ -52,6 +53,9 @@ fn main() {
     RunMode::Test(num_test_instances) => {
       println!("Spawning {num_test_instances} test instances");
       spawn_instances(num_test_instances);
+    }
+    RunMode::Help => {
+      display_help_message();
     }
     RunMode::Unknown(mode) => {
       eprintln!("Unknown config mode \"{mode}\"");

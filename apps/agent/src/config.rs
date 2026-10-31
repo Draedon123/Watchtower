@@ -3,6 +3,7 @@ use config_parser::parse_args;
 pub enum RunMode {
   Normal,
   Test(usize),
+  Help,
   Unknown(String),
 }
 
@@ -14,7 +15,7 @@ pub struct Config {
 
 impl Config {
   pub fn new(args: &[String]) -> Config {
-    let (arguments, _, _) = parse_args(args);
+    let (arguments, flags, _) = parse_args(args);
 
     let watchtower_address = match arguments.get("watchtower-address") {
       Some(string) => string.clone(),
@@ -29,12 +30,25 @@ impl Config {
       None => String::new(),
     };
 
-    let mode = match arguments.get("test-instances") {
-      Some(string) => match string.parse::<usize>() {
-        Ok(num_test_instances) => RunMode::Test(num_test_instances),
-        Err(_) => RunMode::Unknown(string.to_string()),
-      },
-      None => RunMode::Normal,
+    let mode = if flags.contains("h") {
+      RunMode::Help
+    } else {
+      match arguments.get("test-instances") {
+        Some(string) => match string.parse::<usize>() {
+          Ok(num_test_instances) => {
+            if num_test_instances > 0 {
+              RunMode::Test(num_test_instances)
+            } else {
+              RunMode::Normal
+            }
+          }
+          Err(error) => {
+            println!("Failed to parse number of test instances \"{string}\": {error}");
+            RunMode::Normal
+          }
+        },
+        None => RunMode::Normal,
+      }
     };
 
     Config {
