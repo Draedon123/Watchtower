@@ -17,7 +17,7 @@ const GET_MACHINES_PATH = "get/machines";
 async function getMachines(): Promise<string[]> {
   const response = await post(GET_MACHINES_PATH);
 
-  return response === "" ? [] : response.split("\n");
+  return response === "" ? [] : response.split("\n").sort();
 }
 
 async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { dev } from "$app/env";
   import Machine, {
     type MachineData,
     type MemoryData,
@@ -91,14 +90,6 @@
     {:else}
       {#each machines as machine, i (machine)}
         <Machine {...machineData[i]} />
-        {#if dev}
-          <Machine {...machineData[i]} />
-          <Machine {...machineData[i]} />
-          <Machine {...machineData[i]} />
-          <Machine {...machineData[i]} />
-          <Machine {...machineData[i]} />
-          <Machine {...machineData[i]} />
-        {/if}
       {/each}
     {/if}
   {/if}
