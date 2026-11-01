@@ -90,6 +90,73 @@ impl Url {
       _ => None,
     }
   }
+
+  pub fn percent_encode(&mut self) {
+    self.raw = Url::encode_uri_component(&self.raw);
+  }
+
+  pub fn percent_decode(&self) -> Result<String, String> {
+    Url::decode_uri_component(&self.raw)
+  }
+
+  pub fn encode_uri_component(uri: &str) -> String {
+    let mut encoded = String::with_capacity(uri.len());
+
+    for byte in uri.bytes() {
+      match byte {
+        b'A'..=b'Z'
+        | b'a'..=b'z'
+        | b'0'..=b'9'
+        | b'-'
+        | b'_'
+        | b'.'
+        | b'!'
+        | b'~'
+        | b'*'
+        | b'\''
+        | b'('
+        | b')' => {
+          encoded.push(byte as char);
+        }
+        _ => {
+          encoded.push_str(&format!("%{:02X}", byte));
+        }
+      }
+    }
+
+    encoded
+  }
+
+  pub fn decode_uri_component(encoded: &str) -> Result<String, String> {
+    let mut decoded = Vec::<u8>::with_capacity(encoded.len());
+    let bytes = encoded.as_bytes();
+
+    let mut i = 0;
+
+    while i < bytes.len() {
+      let byte = bytes[i];
+
+      if byte == b'%' {
+        if i + 2 >= bytes.len() {
+          return Err(String::from("Incomplete percent encoding"));
+        }
+
+        // fetch the two characters after the %
+        let hex = str::from_utf8(&bytes[i + 1..=i + 2])
+          .map_err(|_| String::from("Invalid percent encoding"))?;
+        let byte =
+          u8::from_str_radix(hex, 16).map_err(|_| String::from("Invalid percent encoding"))?;
+
+        decoded.push(byte);
+        i += 3;
+      } else {
+        decoded.push(byte);
+        i += 1;
+      }
+    }
+
+    String::from_utf8(decoded).map_err(|_| String::from("Decoded URI component is not valid utf-8"))
+  }
 }
 
 #[cfg(test)]
@@ -119,5 +186,17 @@ mod tests {
     assert_matches!(url.protocol(), Err(()));
     assert_eq!(url.host().unwrap(), "foo");
     assert_eq!(url.query().unwrap().len(), 0);
+  }
+
+  #[test]
+  fn percent_encode_decode() {
+    let string = "foo$🥀";
+    let mut url = Url::new(string);
+
+    url.percent_encode();
+
+    let decoded = url.percent_decode().unwrap();
+
+    assert_eq!(string, decoded);
   }
 }
