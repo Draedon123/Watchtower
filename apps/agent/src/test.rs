@@ -22,10 +22,7 @@ pub fn spawn_instances(num_instances: usize) {
 
   for id in 1..=num_instances {
     match spawn_instance(id) {
-      Ok(thread) => {
-        println!("Spawning instance {id}");
-        threads.push(thread)
-      }
+      Ok(thread) => threads.push(thread),
       Err(error) => eprintln!("Failed to spawn test instance {id}: {error}"),
     }
   }
