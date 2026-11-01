@@ -7,7 +7,7 @@ use crate::{header::Headers, response::Response};
 
 pub struct Request {
   pub method: HTTPMethod,
-  pub path: String,
+  pub path: Url,
   pub headers: Headers,
 
   stream: TcpStream,
@@ -18,7 +18,7 @@ impl Request {
   pub fn new(stream: &TcpStream) -> Request {
     Request {
       method: HTTPMethod::Get(),
-      path: String::new(),
+      path: Url::new(""),
       content: String::new(),
       headers: Headers::new(),
       stream: stream.try_clone().unwrap(),
@@ -50,7 +50,7 @@ impl Request {
     let content = format!(
       "{} {} HTTP/1.1\r\n{}\r\n{}",
       self.method,
-      Url::encode_uri_component(&self.path),
+      self.path.percent_encode().unwrap(),
       self.headers,
       self.content
     );
@@ -104,8 +104,7 @@ impl Request {
     let start_line: Vec<_> = lines[0].split(" ").collect();
 
     let method = HTTPMethod::from(start_line[0]);
-    let raw_path = start_line[1].to_string();
-    let path = Url::decode_uri_component(&raw_path).unwrap_or(raw_path);
+    let path = Url::new(start_line[1]);
 
     let content_length = headers
       .get_header("Content-Length")

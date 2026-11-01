@@ -1,5 +1,5 @@
 use crate::{config::Config, route::Route, thread_pool::ThreadPool};
-use http::{header::Headers, method::HTTPMethod, request::Request, response::Response};
+use http::{header::Headers, method::HTTPMethod, request::Request, response::Response, url::Url};
 use std::{
   collections::HashMap,
   io::BufReader,
@@ -119,7 +119,19 @@ impl<'a> Server<'a> {
 
       let mut request_slugs: HashMap<String, String> = HashMap::new();
       let request_method = http_request.method.clone();
-      let request_path = http_request.path.clone();
+      let request_path = match http_request.path.path() {
+        Ok(path) => match Url::decode_uri_component(&path) {
+          Ok(path) => path,
+          Err(_) => {
+            eprintln!("Failed to decode request path {}", http_request.path);
+            continue;
+          }
+        },
+        Err(_) => {
+          eprintln!("Failed to decode request path {}", http_request.path);
+          continue;
+        }
+      };
 
       let close_connection = match http_request.headers.get_header("Connection") {
         Some(value) => value == "close",

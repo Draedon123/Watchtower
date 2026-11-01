@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 pub struct Url {
-  raw: String,
+  pub raw: String,
 }
 
 impl Url {
@@ -9,6 +9,43 @@ impl Url {
     Self {
       raw: url.to_string(),
     }
+  }
+
+  pub fn from_parts(
+    protocol: Option<&str>,
+    host: &str,
+    port: Option<u16>,
+    path: &Option<String>,
+    query: &Option<HashMap<String, String>>,
+  ) -> Self {
+    let mut raw = String::new();
+
+    if let Some(protocol) = protocol {
+      raw.push_str(protocol);
+    }
+
+    raw.push_str(host);
+
+    if let Some(port) = port {
+      raw.push(':');
+      raw.push_str(&port.to_string());
+    }
+
+    if let Some(path) = path {
+      raw.push_str(path);
+    }
+
+    if let Some(query) = query {
+      if query.len() > 0 {
+        raw.push('?');
+
+        for (key, value) in query {
+          raw.push_str(&format!("{}={}", key, value));
+        }
+      }
+    }
+
+    Url::new(&raw)
   }
 
   pub fn protocol(&self) -> Result<String, ()> {
@@ -91,8 +128,40 @@ impl Url {
     }
   }
 
-  pub fn percent_encode(&mut self) {
-    self.raw = Url::encode_uri_component(&self.raw);
+  pub fn percent_encode_mut(&mut self) -> Result<(), ()> {
+    self.raw = self.percent_encode()?;
+
+    Ok(())
+  }
+
+  pub fn percent_encode(&self) -> Result<String, ()> {
+    let host = self.host()?;
+    let path = self
+      .path()
+      .ok()
+      .map(|path| format!("/{}", Url::encode_uri_component(&path[1..])));
+    let query = self.query().ok().map(|query| {
+      query
+        .iter()
+        .map(|(key, value)| {
+          (
+            Url::encode_uri_component(key),
+            Url::encode_uri_component(value),
+          )
+        })
+        .collect()
+    });
+    let port = self.port().ok();
+
+    let new_url = Url::from_parts(None, &host, port, &path, &query);
+
+    Ok(new_url.raw)
+  }
+
+  pub fn percent_decode_mut(&mut self) -> Result<(), String> {
+    self.raw = self.percent_decode()?;
+
+    Ok(())
   }
 
   pub fn percent_decode(&self) -> Result<String, String> {
@@ -159,6 +228,12 @@ impl Url {
   }
 }
 
+impl Display for Url {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.raw)
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use std::assert_matches;
@@ -190,13 +265,17 @@ mod tests {
 
   #[test]
   fn percent_encode_decode() {
-    let string = "foo$🥀";
+    let string = "foo.com/$bar🥀";
     let mut url = Url::new(string);
 
-    url.percent_encode();
+    println!("{:?}", url.raw.bytes());
+    url.percent_encode_mut().unwrap();
 
-    let decoded = url.percent_decode().unwrap();
+    assert_eq!(url.raw, "foo.com/%24bar%F0%9F%A5%80");
 
-    assert_eq!(string, decoded);
+    println!("{:?}", url.raw.bytes());
+    url.percent_decode_mut().unwrap();
+
+    assert_eq!(url.raw, string);
   }
 }

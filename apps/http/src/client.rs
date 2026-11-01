@@ -38,10 +38,6 @@ impl Client {
       Ok(host) => host,
       Err(_) => return Err(format!("Could not get host from address \"{address}\"")),
     };
-    let path = match url.path() {
-      Ok(path) => path,
-      Err(_) => return Err(format!("Could not get path from address \"{address}\"")),
-    };
     let port = url
       .port()
       .unwrap_or_else(|_| url.guess_port().unwrap_or(80));
@@ -61,7 +57,7 @@ impl Client {
     if let Some(stream) = self.stream.as_ref() {
       let mut request = Request::new(stream);
       request.method = method;
-      request.path = path;
+      request.path = url;
 
       request.headers = match headers {
         Some(headers) => Headers::apply_defaults(&self.default_headers, &headers),
