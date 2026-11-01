@@ -38,8 +38,7 @@ pub fn spawn_instances(num_instances: usize) {
 fn spawn_instance(id: usize) -> Result<JoinHandle<()>, String> {
   let mut hostname_fetcher = HostnameFetcher::new();
   let base_hostname = hostname_fetcher.get_hostname()?;
-  // TODO: fix http library to allow names with spaces
-  let test_hostname = format!("{base_hostname}_{id}");
+  let test_hostname = format!("{base_hostname} {id}");
 
   hostname_fetcher.set_override(Some(test_hostname));
 

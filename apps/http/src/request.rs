@@ -2,6 +2,7 @@ use std::io::BufReader;
 use std::{io::prelude::*, net::TcpStream};
 
 use crate::method::HTTPMethod;
+use crate::url::Url;
 use crate::{header::Headers, response::Response};
 
 pub struct Request {
@@ -48,7 +49,10 @@ impl Request {
   pub fn send(&mut self) -> Result<(), String> {
     let content = format!(
       "{} {} HTTP/1.1\r\n{}\r\n{}",
-      self.method, self.path, self.headers, self.content
+      self.method,
+      Url::encode_uri_component(&self.path),
+      self.headers,
+      self.content
     );
 
     if let Err(error) = self.stream.write_all(content.as_bytes()) {
@@ -100,7 +104,8 @@ impl Request {
     let start_line: Vec<_> = lines[0].split(" ").collect();
 
     let method = HTTPMethod::from(start_line[0]);
-    let path = start_line[1].to_string();
+    let raw_path = start_line[1].to_string();
+    let path = Url::decode_uri_component(&raw_path).unwrap_or(raw_path);
 
     let content_length = headers
       .get_header("Content-Length")
