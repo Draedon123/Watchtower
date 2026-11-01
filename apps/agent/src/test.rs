@@ -44,6 +44,11 @@ fn spawn_instance(id: usize) -> Result<JoinHandle<()>, String> {
     let args: Vec<String> = env::args().collect();
     let config = Config::new(&args);
 
+    println!(
+      "Instance {id} connecting to server on {}",
+      config.watchtower_address
+    );
+
     let mut client = Client::new();
     let mut headers = Headers::new();
     headers

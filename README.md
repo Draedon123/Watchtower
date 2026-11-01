@@ -38,6 +38,6 @@ Note: the agent only runs on Linux devices
 2. `cd` into the location of the `watchtower-server` executable
 3. Run `./watchtower-server --password "YOUR_PASSWORD" --threads THREAD_COUNT`. `--threads THREAD_COUNT` is optional. `THREAD_COUNT` must be an integer greater than 0 and defaults to 4. For more help, run `./watchtower-server -h`
 4. `cd` into the location of the `watchtower-agent` executable
-5. Run `./watchtower-agent -r -- --password "YOUR_PASSWORD" --watchtower-address "ADDRESS:PORT"` where `ADDRESS:PORT` is the address and port of the server. This option is mandatory. By default, the server will run on `127.0.0.1:9824`. For more help, run `./watchtower-agent -h`
+5. Run `./watchtower-agent --password "YOUR_PASSWORD" --watchtower-address "ADDRESS:PORT"` where `ADDRESS:PORT` is the address and port of the server. Defaults to `127.0.0.1:9824`. For more help, run `./watchtower-agent -h`
 6. `cd` into the location of the webpage
 7. Host the webpage located with any method. Possible methods include (but are not limited to) running `pnpm preview` or hosting it on Vercel/other static site hosters

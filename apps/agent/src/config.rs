@@ -19,10 +19,7 @@ impl Config {
 
     let watchtower_address = match arguments.get("watchtower-address") {
       Some(string) => string.clone(),
-      None => {
-        eprintln!("No watchtower address specified. Set one with --watchtower-address ADDRESS");
-        String::new()
-      }
+      None => String::from("127.0.0.1:9824"),
     };
 
     let password = match arguments.get("password") {

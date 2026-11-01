@@ -20,6 +20,8 @@ fn main() {
 
   match config.mode {
     RunMode::Normal => {
+      println!("Connecting to server on {}", config.watchtower_address);
+
       let mut client = Client::new();
       let mut headers = Headers::new();
       headers
