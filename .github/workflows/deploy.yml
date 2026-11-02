@@ -9,7 +9,8 @@ on:
       - main
     paths:
       - apps/web/**/*
-on: workflow_dispatch
+
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
