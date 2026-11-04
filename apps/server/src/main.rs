@@ -1,7 +1,8 @@
 use http::header::Headers;
 use http::response::Response;
 use std::env;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use watchtower_server::config::RunMode;
 use watchtower_server::help::display_help_message;
 
@@ -32,130 +33,133 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   default_response_headers.set_header("Access-Control-Allow-Origin", "*");
   server.set_default_response_headers(default_response_headers);
 
-  let data_writer_1 = data.clone();
-  server.set_on_connection_close(move |stream| {
-    let ip = stream.peer_addr().unwrap().to_string();
+  let data_writer_1 = Box::leak(Box::new(data.clone()));
+  server.set_on_connection_close(Arc::new(Some(Box::new(move |stream| {
+    let data_writer_1 = data_writer_1.clone();
 
-    let machine = data_writer_1.write().unwrap().unregister_machine(&ip);
+    Box::pin(async move {
+      let ip = stream.peer_addr().unwrap().to_string();
 
-    match machine {
-      Some(machine) => println!("Successfully unregistered {machine} ({ip})"),
-      None => println!("Failed to unregister machine from ip: {ip}"),
-    }
-  });
+      let machine = data_writer_1.write().await.unregister_machine(&ip);
+
+      match machine {
+        Some(machine) => println!("Successfully unregistered {machine} ({ip})"),
+        None => println!("Failed to unregister machine from ip: {ip}"),
+      };
+    })
+  }))));
 
   let server_password = Arc::new(config.password.clone());
 
-  server.route(
-    "/",
-    HTTPMethod::Get(),
-    Arc::new(|request, response| {
-      Box::pin(async move {
-        response.status_code = StatusCode::Status200;
-
-        try_respond(request, response).await;
-      })
-    }),
-  );
-
-  let data_reader_1 = Box::leak(Box::new(data.clone()));
-  server.route(
-    "/get/[machine]/[key]",
-    HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_reader_1 = data_reader_1.clone();
-
-      Box::pin(async move {
-        let machine = request.slugs.get("machine").unwrap();
-        let key = request.slugs.get("key").unwrap();
-
-        let data = data_reader_1.read().unwrap();
-        let recent_data = data.get_machine_data_recent(machine, key);
-
-        match recent_data {
-          Ok(data_entry) => {
-            response.set_content(&data_entry.to_string());
-            response.status_code = StatusCode::Status200;
-          }
-          Err(error) => {
-            response.status_code = StatusCode::Status400;
-            response.set_content(&error.to_string());
-          }
-        };
-
-        try_respond(request, response).await;
-      })
-    }),
-  );
-
-  let data_reader_2 = Box::leak(Box::new(data.clone()));
-  server.route(
-    "/get/machines",
-    HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_reader_2 = data_reader_2.clone();
-
-      Box::pin(async move {
-        {
-          let data = data_reader_2.read().unwrap();
-
+  server
+    .route(
+      "/",
+      HTTPMethod::Get(),
+      Arc::new(|request, response| {
+        Box::pin(async move {
           response.status_code = StatusCode::Status200;
-          response.set_content(
-            &data
-              .list_machines()
-              .iter()
-              .map(|string| string.as_str())
-              .collect::<Vec<_>>()
-              .join("\n"),
-          );
 
           try_respond(request, response).await;
-        }
-      })
-    }),
-  );
+        })
+      }),
+    )
+    .await;
 
-  let data_writer_2 = Box::leak(Box::new(data.clone()));
-  let server_password_1 = Box::leak(Box::new(server_password.clone()));
-  server.route(
-    "/set/[machine]",
-    HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_writer_2 = data_writer_2.clone();
-      let server_password_1 = server_password_1.clone();
+  let data_reader_1 = Box::leak(Box::new(data.clone()));
+  server
+    .route(
+      "/get/[machine]/[key]",
+      HTTPMethod::Post(),
+      Arc::new(|request, response| {
+        let data_reader_1 = data_reader_1.clone();
 
-      Box::pin(async move {
-        {
-          if !is_authenticated(request, response, &server_password_1).await {
-            return;
-          };
-
+        Box::pin(async move {
           let machine = request.slugs.get("machine").unwrap();
-          let mut data = match data_writer_2.write() {
-            Ok(data) => data,
-            Err(error) => {
-              response.status_code = StatusCode::Status500;
-              response.set_content(&error.to_string());
+          let key = request.slugs.get("key").unwrap();
 
-              try_respond(request, response).await;
-              return;
+          let data = data_reader_1.read().await;
+          let recent_data = data.get_machine_data_recent(machine, key);
+
+          match recent_data {
+            Ok(data_entry) => {
+              response.set_content(&data_entry.to_string());
+              response.status_code = StatusCode::Status200;
+            }
+            Err(error) => {
+              response.status_code = StatusCode::Status400;
+              response.set_content(&error.to_string());
             }
           };
 
-          response.status_code = if data.register_machine(
-            request.http_request.stream.peer_addr().unwrap().to_string(),
-            machine,
-          ) {
-            StatusCode::Status200
-          } else {
-            StatusCode::Status400
-          };
-
           try_respond(request, response).await;
-        }
-      })
-    }),
-  );
+        })
+      }),
+    )
+    .await;
+
+  let data_reader_2 = Box::leak(Box::new(data.clone()));
+  server
+    .route(
+      "/get/machines",
+      HTTPMethod::Post(),
+      Arc::new(|request, response| {
+        let data_reader_2 = data_reader_2.clone();
+
+        Box::pin(async move {
+          {
+            let data = data_reader_2.read().await;
+
+            response.status_code = StatusCode::Status200;
+            response.set_content(
+              &data
+                .list_machines()
+                .iter()
+                .map(|string| string.as_str())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            );
+
+            try_respond(request, response).await;
+          }
+        })
+      }),
+    )
+    .await;
+
+  let data_writer_2 = Box::leak(Box::new(data.clone()));
+  let server_password_1 = Box::leak(Box::new(server_password.clone()));
+  server
+    .route(
+      "/set/[machine]",
+      HTTPMethod::Post(),
+      Arc::new(|request, response| {
+        let data_writer_2 = data_writer_2.clone();
+        let server_password_1 = server_password_1.clone();
+
+        Box::pin(async move {
+          {
+            if !is_authenticated(request, response, &server_password_1).await {
+              return;
+            };
+
+            let machine = request.slugs.get("machine").unwrap();
+            let mut data = data_writer_2.write().await;
+
+            response.status_code = if data.register_machine(
+              request.http_request.stream.peer_addr().unwrap().to_string(),
+              machine,
+            ) {
+              StatusCode::Status200
+            } else {
+              StatusCode::Status400
+            };
+
+            try_respond(request, response).await;
+          }
+        })
+      }),
+    )
+    .await;
 
   let data_writer_3 = Box::leak(Box::new(data.clone()));
   let server_password_2 = Box::leak(Box::new(server_password.clone()));
@@ -179,16 +183,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       let value = if content.is_empty() { "" } else { content[1] };
       let data = DataType::from((value_type, value));
 
-      let mut all_data = match data_writer_3.write() {
-        Ok(data) => data,
-        Err(error) => {
-          response.status_code = StatusCode::Status500;
-          response.set_content(&error.to_string());
-
-          try_respond(request, response).await;
-          return;
-        }
-      };
+      let mut all_data = data_writer_3.write().await;
 
       match data {
         DataType::F32Value(value) =>{
@@ -217,7 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       try_respond(request, response).await;
     })}),
-  );
+  ).await;
 
   server.start().await?;
 

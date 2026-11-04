@@ -10,8 +10,12 @@ pub enum URLSection {
 }
 
 pub type RouteCallback = Arc<
-  dyn for<'a> Fn(&'a mut ServerRequest, &'a mut Response) -> Pin<Box<dyn Future<Output = ()> + 'a>>
-    + 'static,
+  dyn for<'a> Fn(
+      &'a mut ServerRequest,
+      &'a mut Response,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>
+    + Send
+    + Sync,
 >;
 
 pub struct Route {

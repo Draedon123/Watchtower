@@ -3,12 +3,13 @@ use crate::{
   route::{Route, RouteCallback},
 };
 use http::{header::Headers, method::HTTPMethod, request::Request, response::Response, url::Url};
-use std::{
-  collections::HashMap,
-  sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
-use tokio::net::{TcpListener, TcpStream};
+use tokio::{
+  net::{TcpListener, TcpStream},
+  sync::RwLock,
+  task::JoinSet,
+};
 
 pub struct ServerRequest<'a> {
   pub http_request: &'a mut Request<'a>,
@@ -26,8 +27,14 @@ pub struct Server<'a> {
 
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
-  on_connection_close: Arc<Option<Box<dyn Fn(&mut TcpStream) + Send + Sync>>>,
+  on_connection_close: OnConnectionClose,
 }
+
+pub type OnConnectionClose = Arc<
+  Option<
+    Box<dyn Fn(TcpStream) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync + 'static>,
+  >,
+>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
@@ -46,28 +53,31 @@ impl<'a> Server<'a> {
     let server_address = format!("127.0.0.1:{}", self.config.port);
 
     let listener = TcpListener::bind(&server_address).await?;
+    let mut connections = JoinSet::new();
 
     println!("Opened server on {server_address}",);
 
     loop {
-      let (mut socket, _) = listener.accept().await?;
+      let (socket, _) = listener.accept().await?;
 
       let routes = self.routes.clone();
       let default_response_headers = self.default_response_headers.clone();
       let on_connection_close = self.on_connection_close.clone();
 
-      Self::handle_connection(
-        &mut socket,
-        routes,
-        default_response_headers,
-        on_connection_close,
-      )
-      .await;
+      connections.spawn(async move {
+        Self::handle_connection(
+          socket,
+          routes,
+          default_response_headers,
+          on_connection_close,
+        )
+        .await
+      });
     }
   }
 
-  pub fn route(&mut self, path: &str, method: HTTPMethod, on_request: RouteCallback) {
-    self.routes.write().unwrap().push(Route {
+  pub async fn route(&mut self, path: &str, method: HTTPMethod, on_request: RouteCallback) {
+    self.routes.write().await.push(Route {
       path: Route::path_from_url(path),
       method: method,
       callback: on_request,
@@ -78,23 +88,18 @@ impl<'a> Server<'a> {
     self.default_response_headers = Arc::new(RwLock::new(headers));
   }
 
-  pub fn set_on_connection_close<F>(&mut self, callback: F)
-  where
-    F: Fn(&mut TcpStream) + Send + Sync + 'static,
-  {
-    self.on_connection_close = Arc::new(Some(Box::new(callback)));
+  pub fn set_on_connection_close(&mut self, callback: OnConnectionClose) {
+    self.on_connection_close = callback;
   }
 
   async fn handle_connection(
-    stream: &mut TcpStream,
+    mut stream: TcpStream,
     routes: Arc<RwLock<Vec<Route>>>,
     default_response_headers: Arc<RwLock<Headers>>,
-    on_connection_close: Arc<Option<Box<dyn Fn(&mut TcpStream) + Send + Sync>>>,
+    on_connection_close: OnConnectionClose,
   ) {
-    let routes = routes.read().unwrap();
-
     loop {
-      let mut http_request = match Request::read_from_buffer(&mut *stream).await {
+      let mut http_request = match Request::read_from_buffer(&mut stream).await {
         Ok(Some(request)) => request,
         Ok(None) => break,
         Err(error) => {
@@ -126,6 +131,7 @@ impl<'a> Server<'a> {
 
       println!("Received {request_method} request for {request_path}");
 
+      let routes = routes.read().await;
       let route = routes.iter().find(|route| {
         if route.method != request_method {
           false
@@ -150,7 +156,7 @@ impl<'a> Server<'a> {
 
       match route {
         Some(route) => {
-          response.headers = default_response_headers.read().unwrap().clone();
+          response.headers = default_response_headers.read().await.clone();
 
           (route.callback)(&mut request, &mut response).await;
         }
@@ -173,7 +179,7 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(stream);
+      callback(stream).await;
     };
   }
 }
