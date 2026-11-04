@@ -8,3 +8,5 @@ http = { path = "../http" }
 config_parser = { path = "../config_parser" }
 watchtower-server = { path = "../server" }
 rand = "0.10.3"
+tokio = "1.54.1"
+futures = "0.3.34"

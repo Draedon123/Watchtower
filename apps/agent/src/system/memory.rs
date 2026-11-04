@@ -57,7 +57,11 @@ impl<'a> Memory<'a> {
     }
   }
 
-  pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
+  pub async fn send_to_watchtower(
+    &mut self,
+    config: &Config,
+    client: &mut Client,
+  ) -> Result<(), String> {
     let data = match self.get_data()? {
       Some(data) => Some(data),
       None => None,
@@ -70,9 +74,10 @@ impl<'a> Memory<'a> {
       config,
       client,
     )
+    .await
   }
 
-  pub fn send_data_to_watchtower(
+  pub async fn send_data_to_watchtower(
     hostname_fetcher: &'a HostnameFetcher,
     memory_type: &MemoryType,
     data: Option<MemoryData>,
@@ -91,18 +96,20 @@ impl<'a> Memory<'a> {
       None => String::new(),
     };
 
-    let mut connection = client.request(
-      HTTPMethod::Post(),
-      &format!(
-        "{}/set/{hostname}/{}",
-        config.watchtower_address,
-        memory_type.watchtower_path()
-      ),
-      None,
-    )?;
+    let mut connection = client
+      .request(
+        HTTPMethod::Post(),
+        &format!(
+          "{}/set/{hostname}/{}",
+          config.watchtower_address,
+          memory_type.watchtower_path()
+        ),
+        None,
+      )
+      .await?;
 
     connection.set_content(&data);
-    connection.send()?;
+    connection.send().await?;
 
     Ok(())
   }

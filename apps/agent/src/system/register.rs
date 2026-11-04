@@ -4,13 +4,17 @@ use http::{client::Client, method::HTTPMethod};
 
 use crate::{config::Config, system::hostname::HostnameFetcher};
 
-pub fn loop_register(config: &Config, client: &mut Client, hostname_fetcher: &HostnameFetcher) {
-  while let Err(_) = try_register(config, client, hostname_fetcher) {
+pub async fn loop_register(
+  config: &Config,
+  client: &mut Client,
+  hostname_fetcher: &HostnameFetcher,
+) {
+  while let Err(_) = try_register(config, client, hostname_fetcher).await {
     sleep(time::Duration::from_millis(1000));
   }
 }
 
-pub fn try_register(
+pub async fn try_register(
   config: &Config,
   client: &mut Client,
   hostname_fetcher: &HostnameFetcher,
@@ -22,13 +26,15 @@ pub fn try_register(
     }
   };
 
-  let mut connection = client.request(
-    HTTPMethod::Post(),
-    &format!("{}/set/{hostname}", config.watchtower_address),
-    None,
-  )?;
+  let mut connection = client
+    .request(
+      HTTPMethod::Post(),
+      &format!("{}/set/{hostname}", config.watchtower_address),
+      None,
+    )
+    .await?;
 
-  connection.send()?;
+  connection.send().await?;
 
   Ok(())
 }

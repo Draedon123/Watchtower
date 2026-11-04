@@ -14,7 +14,8 @@ use watchtower_agent::{
   test::spawn_instances,
 };
 
-fn main() {
+#[tokio::main]
+async fn main() {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
@@ -31,7 +32,7 @@ fn main() {
       client.default_headers = headers;
 
       let hostname_fetcher = HostnameFetcher::new();
-      loop_register(&config, &mut client, &hostname_fetcher);
+      loop_register(&config, &mut client, &hostname_fetcher).await;
 
       let mut cpu_usage = CpuUsage::new(&hostname_fetcher);
       let mut physical_memory = Memory::new(MemoryType::Physical, &hostname_fetcher);
@@ -39,22 +40,25 @@ fn main() {
       loop {
         sleep(time::Duration::from_millis(1000));
 
-        if let Err(error) = cpu_usage.send_to_watchtower(&config, &mut client) {
+        if let Err(error) = cpu_usage.send_to_watchtower(&config, &mut client).await {
           eprintln!("Failed to send cpu usage to watchtower: {error}");
         };
 
-        if let Err(error) = physical_memory.send_to_watchtower(&config, &mut client) {
+        if let Err(error) = physical_memory
+          .send_to_watchtower(&config, &mut client)
+          .await
+        {
           eprintln!("Failed to send physical memory data to watchtower: {error}");
         };
 
-        if let Err(error) = swap_memory.send_to_watchtower(&config, &mut client) {
+        if let Err(error) = swap_memory.send_to_watchtower(&config, &mut client).await {
           eprintln!("Failed to send swap memory data to watchtower: {error}");
         };
       }
     }
     RunMode::Test(num_test_instances) => {
       println!("Spawning {num_test_instances} test instances");
-      spawn_instances(num_test_instances);
+      spawn_instances(num_test_instances).await;
     }
     RunMode::Help => {
       display_help_message();

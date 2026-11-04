@@ -40,13 +40,17 @@ impl<'a> CpuUsage<'a> {
     Ok(usage)
   }
 
-  pub fn send_to_watchtower(&mut self, config: &Config, client: &mut Client) -> Result<(), String> {
+  pub async fn send_to_watchtower(
+    &mut self,
+    config: &Config,
+    client: &mut Client,
+  ) -> Result<(), String> {
     let usage = self.get_usage()?;
 
-    CpuUsage::send_data_to_watchtower(&self.hostname_fetcher, usage, config, client)
+    CpuUsage::send_data_to_watchtower(&self.hostname_fetcher, usage, config, client).await
   }
 
-  pub fn send_data_to_watchtower(
+  pub async fn send_data_to_watchtower(
     hostname_fetcher: &'a HostnameFetcher,
     usage: f32,
     config: &Config,
@@ -59,16 +63,18 @@ impl<'a> CpuUsage<'a> {
       }
     };
 
-    let mut connection = client.request(
-      HTTPMethod::Post(),
-      &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
-      None,
-    )?;
+    let mut connection = client
+      .request(
+        HTTPMethod::Post(),
+        &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
+        None,
+      )
+      .await?;
 
     let data = DataEntry::from(usage);
 
     connection.set_content(&format!("{data}"));
-    connection.send()?;
+    connection.send().await?;
 
     Ok(())
   }

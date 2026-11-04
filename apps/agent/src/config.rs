@@ -1,5 +1,6 @@
 use config_parser::parse_args;
 
+#[derive(Clone)]
 pub enum RunMode {
   Normal,
   Test(usize),
@@ -7,6 +8,7 @@ pub enum RunMode {
   Unknown(String),
 }
 
+#[derive(Clone)]
 pub struct Config {
   pub password: String,
   pub watchtower_address: String,
