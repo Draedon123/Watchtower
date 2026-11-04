@@ -1,4 +1,4 @@
-use std::net::TcpStream;
+use tokio::net::TcpStream;
 
 use crate::{header::Headers, method::HTTPMethod, request::Request, url::Url};
 
@@ -20,12 +20,12 @@ impl Client {
     }
   }
 
-  pub fn request(
+  pub async fn request(
     &mut self,
     method: HTTPMethod,
     address: &str,
     headers: Option<Headers>,
-  ) -> Result<Request, String> {
+  ) -> Result<Request<'_>, String> {
     let url = Url::new(address);
 
     if let Ok(protocol) = url.protocol() {
@@ -46,7 +46,7 @@ impl Client {
       self.host = host.clone();
       self.port = port;
 
-      let stream = match TcpStream::connect((host, port)) {
+      let stream = match TcpStream::connect((host, port)).await {
         Ok(stream) => stream,
         Err(error) => return Err(error.to_string()),
       };
@@ -54,7 +54,7 @@ impl Client {
       self.stream = Some(stream);
     };
 
-    if let Some(stream) = self.stream.as_ref() {
+    if let Some(stream) = self.stream.as_mut() {
       let mut request = Request::new(stream);
       request.method = method;
       request.path = url;

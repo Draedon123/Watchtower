@@ -1,20 +1,23 @@
-use crate::{config::Config, route::Route, thread_pool::ThreadPool};
+use crate::{
+  config::Config,
+  route::{Route, RouteCallback},
+};
 use http::{header::Headers, method::HTTPMethod, request::Request, response::Response, url::Url};
 use std::{
   collections::HashMap,
-  io::BufReader,
-  net::{TcpListener, TcpStream},
   sync::{Arc, RwLock},
 };
 
+use tokio::net::{TcpListener, TcpStream};
+
 pub struct ServerRequest<'a> {
-  pub http_request: &'a mut Request,
+  pub http_request: &'a mut Request<'a>,
   pub slugs: HashMap<String, String>,
 }
 
 impl<'a> ServerRequest<'a> {
-  pub fn respond(&mut self, response: &Response) -> Result<(), String> {
-    self.http_request.respond(response)
+  pub async fn respond(&mut self, response: &Response) -> Result<(), String> {
+    self.http_request.respond(response).await
   }
 }
 
@@ -23,8 +26,7 @@ pub struct Server<'a> {
 
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
-  thread_pool: ThreadPool,
-  on_connection_close: Arc<Option<Box<dyn Fn(TcpStream) + Send + Sync>>>,
+  on_connection_close: Arc<Option<Box<dyn Fn(&mut TcpStream) + Send + Sync>>>,
 }
 
 impl<'a> Server<'a> {
@@ -32,7 +34,6 @@ impl<'a> Server<'a> {
     let server = Server {
       routes: Arc::new(RwLock::new(Vec::new())),
       config,
-      thread_pool: ThreadPool::new(config.num_threads),
       default_response_headers: Arc::new(RwLock::new(Headers::new())),
       on_connection_close: Arc::new(None),
     };
@@ -41,49 +42,35 @@ impl<'a> Server<'a> {
   }
 
   /// Starts listening on the supplied port. Also blocks the thread.
-  pub fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+  pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
     let server_address = format!("127.0.0.1:{}", self.config.port);
 
-    let listener = TcpListener::bind(&server_address)?;
+    let listener = TcpListener::bind(&server_address).await?;
 
-    println!(
-      "Opened server on {server_address} with {} threads",
-      self.thread_pool.num_threads
-    );
+    println!("Opened server on {server_address}",);
 
-    for stream in listener.incoming() {
-      let stream = if let Ok(stream) = stream {
-        stream
-      } else {
-        eprintln!("Failed to read incoming TcpStream");
-        continue;
-      };
+    loop {
+      let (mut socket, _) = listener.accept().await?;
 
       let routes = self.routes.clone();
       let default_response_headers = self.default_response_headers.clone();
       let on_connection_close = self.on_connection_close.clone();
 
-      self.thread_pool.execute(move || {
-        Self::handle_connection(
-          stream,
-          routes,
-          default_response_headers,
-          on_connection_close,
-        );
-      });
+      Self::handle_connection(
+        &mut socket,
+        routes,
+        default_response_headers,
+        on_connection_close,
+      )
+      .await;
     }
-
-    Ok(())
   }
 
-  pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
-  where
-    F: Fn(&mut ServerRequest, &mut Response, &TcpStream) + Send + Sync + 'static,
-  {
+  pub fn route(&mut self, path: &str, method: HTTPMethod, on_request: RouteCallback) {
     self.routes.write().unwrap().push(Route {
       path: Route::path_from_url(path),
       method: method,
-      callback: Arc::new(on_request),
+      callback: on_request,
     })
   }
 
@@ -93,22 +80,21 @@ impl<'a> Server<'a> {
 
   pub fn set_on_connection_close<F>(&mut self, callback: F)
   where
-    F: Fn(TcpStream) + Send + Sync + 'static,
+    F: Fn(&mut TcpStream) + Send + Sync + 'static,
   {
     self.on_connection_close = Arc::new(Some(Box::new(callback)));
   }
 
-  fn handle_connection(
-    stream: TcpStream,
+  async fn handle_connection(
+    stream: &mut TcpStream,
     routes: Arc<RwLock<Vec<Route>>>,
     default_response_headers: Arc<RwLock<Headers>>,
-    on_connection_close: Arc<Option<Box<dyn Fn(TcpStream) + Send + Sync>>>,
+    on_connection_close: Arc<Option<Box<dyn Fn(&mut TcpStream) + Send + Sync>>>,
   ) {
-    let mut reader = BufReader::new(&stream);
     let routes = routes.read().unwrap();
 
     loop {
-      let mut http_request = match Request::read_from_buffer(&stream, &mut reader) {
+      let mut http_request = match Request::read_from_buffer(&mut *stream).await {
         Ok(Some(request)) => request,
         Ok(None) => break,
         Err(error) => {
@@ -166,14 +152,14 @@ impl<'a> Server<'a> {
         Some(route) => {
           response.headers = default_response_headers.read().unwrap().clone();
 
-          (route.callback)(&mut request, &mut response, &stream);
+          (route.callback)(&mut request, &mut response).await;
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
           let mut response = Response::new();
 
           response.status_code = http::status_codes::StatusCode::Status404;
-          if let Err(error) = request.respond(&response) {
+          if let Err(error) = request.respond(&response).await {
             eprintln!(
               "Failed to send 404 for {request_method} request for route {request_path}: {error}"
             );

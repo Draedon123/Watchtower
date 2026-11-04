@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::TcpStream, sync::Arc};
+use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use http::{method::HTTPMethod, response::Response};
 
@@ -9,10 +9,15 @@ pub enum URLSection {
   Slug(String),
 }
 
+pub type RouteCallback = Arc<
+  dyn for<'a> Fn(&'a mut ServerRequest, &'a mut Response) -> Pin<Box<dyn Future<Output = ()> + 'a>>
+    + 'static,
+>;
+
 pub struct Route {
   pub method: HTTPMethod,
   pub path: Vec<URLSection>,
-  pub callback: Arc<dyn Fn(&mut ServerRequest, &mut Response, &TcpStream) + Send + Sync>,
+  pub callback: RouteCallback,
 }
 
 impl Route {

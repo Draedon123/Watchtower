@@ -1,7 +1,6 @@
 use config_parser::parse_args;
 
 const DEFAULT_PORT: u16 = 9824;
-const DEFAULT_THREAD_COUNT: usize = 4;
 
 pub enum RunMode {
   Normal,
@@ -12,7 +11,6 @@ pub enum RunMode {
 pub struct Config {
   pub port: u16,
   pub password: String,
-  pub num_threads: usize,
   pub mode: RunMode,
 }
 
@@ -33,26 +31,15 @@ impl Config {
       None => String::new(),
     };
 
-    let num_threads = match arguments.get("threads") {
-      Some(string) => string.parse::<usize>().unwrap_or_else(|_| {
-        eprintln!("Failed to parse thread count \"{string}\"");
-        DEFAULT_THREAD_COUNT
-      }),
-      None => DEFAULT_THREAD_COUNT,
-    };
-
     let mode = if flags.contains("h") {
       RunMode::Help
     } else {
       RunMode::Normal
     };
 
-    assert!(num_threads > 0, "Thread count must be at least 1");
-
     Config {
       port,
       password,
-      num_threads,
       mode,
     }
   }
