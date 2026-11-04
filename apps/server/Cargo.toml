@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 http = { path = "../http" }
 config_parser = { path = "../config_parser" }
+tokio = { version = "1.54.1", features = ["full"] }

@@ -14,7 +14,8 @@ use watchtower_server::{
   server::{Server, ServerRequest},
 };
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
