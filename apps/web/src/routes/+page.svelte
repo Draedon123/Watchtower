@@ -42,26 +42,9 @@
       machines = await getMachines().catch(() => null);
       loadedFirstData = true;
 
-      cpuUsages =
-        machines === null
-          ? []
-          : await getCpuUsages(machines).catch(() =>
-              new Array(machines?.length).fill(null)
-            );
-
-      physicalMemory =
-        machines === null
-          ? []
-          : await getPhysicalMemory(machines).catch(() =>
-              new Array(machines?.length).fill(null)
-            );
-
-      swapMemory =
-        machines === null
-          ? []
-          : await getSwapMemory(machines).catch(() =>
-              new Array(machines?.length).fill(null)
-            );
+      cpuUsages = await getCpuUsages(machines);
+      physicalMemory = await getPhysicalMemory(machines);
+      swapMemory = await getSwapMemory(machines);
     }, 1000);
   });
 

@@ -20,7 +20,13 @@ async function getMachines(): Promise<string[]> {
   return response === "" ? [] : response.split("\n").sort();
 }
 
-async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {
+async function getCpuUsages(
+  machines: string[] | null
+): Promise<(number | null)[]> {
+  if (machines === null) {
+    return [];
+  }
+
   const cpuUsagePromises = machines.map((machine) =>
     post(`get/${machine}/cpu_usage`).catch(() => null)
   );
@@ -35,9 +41,13 @@ async function getCpuUsages(machines: string[]): Promise<(number | null)[]> {
 }
 
 async function getMemory(
-  machines: string[],
+  machines: string[] | null,
   type: "physical" | "swap"
 ): Promise<(MemoryData | null)[]> {
+  if (machines === null) {
+    return [];
+  }
+
   const key = type === "physical" ? "memory_physical" : "memory_swap";
   const promises = machines.map((machine) =>
     post(`get/${machine}/${key}`).catch(() => null)
@@ -68,13 +78,13 @@ async function getMemory(
 }
 
 async function getPhysicalMemory(
-  machines: string[]
+  machines: string[] | null
 ): Promise<(MemoryData | null)[]> {
   return getMemory(machines, "physical");
 }
 
 async function getSwapMemory(
-  machines: string[]
+  machines: string[] | null
 ): Promise<(MemoryData | null)[]> {
   return getMemory(machines, "swap");
 }
