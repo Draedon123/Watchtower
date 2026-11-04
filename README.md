@@ -38,7 +38,7 @@ Note: the agent only runs on Linux devices
 
 1. Download the precompiled executables and webpage from the latest release, or build it from source, as instructed above. Unzip the webpage if downloaded from the release
 2. `cd` into the location of the `watchtower-server` executable
-3. Run `./watchtower-server --password "YOUR_PASSWORD" --threads THREAD_COUNT`. `--threads THREAD_COUNT` is optional. `THREAD_COUNT` must be an integer greater than 0 and defaults to 4. For more help, run `./watchtower-server -h`
+3. Run `./watchtower-server --password "YOUR_PASSWORD"`. For more help, run `./watchtower-server -h`
 4. `cd` into the location of the `watchtower-agent` executable
 5. Run `./watchtower-agent --password "YOUR_PASSWORD" --watchtower-address "ADDRESS:PORT"` where `ADDRESS:PORT` is the address and port of the server. Defaults to `127.0.0.1:9824`. For more help, run `./watchtower-agent -h`
 6. `cd` into the location of the webpage
