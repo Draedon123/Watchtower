@@ -60,7 +60,7 @@ impl Client {
       request.path = url;
 
       request.headers = match headers {
-        Some(headers) => Headers::apply_defaults(&self.default_headers, &headers),
+        Some(headers) => Headers::combine(&self.default_headers, &headers),
         // TODO: don't clone headers every time
         None => self.default_headers.clone(),
       };

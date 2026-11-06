@@ -30,8 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let mut server = Server::new(&config)?;
   server.routes = Arc::new(get_routes(&config, &data));
 
-  let mut default_response_headers = Headers::new();
-  default_response_headers.set_header("Access-Control-Allow-Origin", "*");
+  let default_response_headers = Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
   server.set_default_response_headers(default_response_headers);
 
   let data_writer = Box::leak(Box::new(data.clone()));

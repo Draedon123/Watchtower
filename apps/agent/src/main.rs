@@ -24,10 +24,10 @@ async fn main() {
       println!("Connecting to server on {}", config.watchtower_address);
 
       let mut client = Client::new();
-      let mut headers = Headers::new();
-      headers
-        .set_header("Host", &config.watchtower_address)
-        .set_header("Authorization", &config.password);
+      let headers = Headers::from(vec![
+        ("Host", &config.watchtower_address as &str),
+        ("Authorization", &config.password),
+      ]);
 
       client.default_headers = headers;
 

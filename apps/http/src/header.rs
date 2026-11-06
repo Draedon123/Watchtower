@@ -38,8 +38,8 @@ impl Headers {
     self
   }
 
-  pub fn apply_defaults(defaults: &Headers, overwrites: &Headers) -> Headers {
-    let mut copy = defaults.clone();
+  pub fn combine(source: &Headers, overwrites: &Headers) -> Headers {
+    let mut copy = source.clone();
 
     for (key, value) in &overwrites.headers {
       copy.set_header(key, value);
@@ -64,6 +64,18 @@ impl Display for Headers {
   }
 }
 
+impl From<Vec<(&str, &str)>> for Headers {
+  fn from(value: Vec<(&str, &str)>) -> Self {
+    let mut headers = Headers::new();
+
+    for (key, value) in value {
+      headers.set_header(key, value);
+    }
+
+    headers
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -76,7 +88,7 @@ mod tests {
     let mut overwrites = Headers::new();
     overwrites.set_header("Foo", "Baz");
 
-    let defaults_applied = Headers::apply_defaults(&default, &overwrites);
+    let defaults_applied = Headers::combine(&default, &overwrites);
 
     assert_eq!(
       defaults_applied.get_header("Foo"),
