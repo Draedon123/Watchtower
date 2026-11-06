@@ -23,7 +23,7 @@ impl<'a> ServerRequest<'a> {
 }
 
 pub struct Server<'a> {
-  pub default_response_headers: Arc<RwLock<Headers>>,
+  pub default_response_headers: Headers,
 
   routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
@@ -41,7 +41,7 @@ impl<'a> Server<'a> {
     let server = Server {
       routes: Arc::new(RwLock::new(Vec::new())),
       config,
-      default_response_headers: Arc::new(RwLock::new(Headers::new())),
+      default_response_headers: Headers::new(),
       on_connection_close: Arc::new(None),
     };
 
@@ -68,7 +68,7 @@ impl<'a> Server<'a> {
         Self::handle_connection(
           socket,
           routes,
-          default_response_headers,
+          &default_response_headers,
           on_connection_close,
         )
         .await
@@ -85,7 +85,7 @@ impl<'a> Server<'a> {
   }
 
   pub fn set_default_response_headers(&mut self, headers: Headers) {
-    self.default_response_headers = Arc::new(RwLock::new(headers));
+    self.default_response_headers = headers;
   }
 
   pub fn set_on_connection_close(&mut self, callback: OnConnectionClose) {
@@ -95,7 +95,7 @@ impl<'a> Server<'a> {
   async fn handle_connection(
     mut stream: TcpStream,
     routes: Arc<RwLock<Vec<Route>>>,
-    default_response_headers: Arc<RwLock<Headers>>,
+    default_response_headers: &Headers,
     on_connection_close: OnConnectionClose,
   ) {
     loop {
@@ -156,7 +156,7 @@ impl<'a> Server<'a> {
 
       match route {
         Some(route) => {
-          response.headers = default_response_headers.read().await.clone();
+          response.headers = default_response_headers.clone();
 
           (route.callback)(&mut request, &mut response).await;
         }
