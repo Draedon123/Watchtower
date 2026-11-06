@@ -18,6 +18,24 @@ pub type RouteCallback = Arc<
     + Sync,
 >;
 
+pub struct Routes {
+  pub routes: Vec<Route>,
+}
+
+impl Routes {
+  pub fn new() -> Routes {
+    Routes { routes: Vec::new() }
+  }
+
+  pub fn route(&mut self, path: &str, method: HTTPMethod, on_request: RouteCallback) {
+    self.routes.push(Route {
+      path: Route::path_from_url(path),
+      method: method,
+      callback: on_request,
+    })
+  }
+}
+
 pub struct Route {
   pub method: HTTPMethod,
   pub path: Vec<URLSection>,

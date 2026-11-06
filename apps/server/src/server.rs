@@ -1,13 +1,9 @@
-use crate::{
-  config::Config,
-  route::{Route, RouteCallback},
-};
-use http::{header::Headers, method::HTTPMethod, request::Request, response::Response, url::Url};
+use crate::{config::Config, route::Routes};
+use http::{header::Headers, request::Request, response::Response, url::Url};
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use tokio::{
   net::{TcpListener, TcpStream},
-  sync::RwLock,
   task::JoinSet,
 };
 
@@ -24,8 +20,8 @@ impl<'a> ServerRequest<'a> {
 
 pub struct Server<'a> {
   pub default_response_headers: Headers,
+  pub routes: Arc<Routes>,
 
-  routes: Arc<RwLock<Vec<Route>>>,
   config: &'a Config,
   on_connection_close: OnConnectionClose,
 }
@@ -39,7 +35,7 @@ pub type OnConnectionClose = Arc<
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
     let server = Server {
-      routes: Arc::new(RwLock::new(Vec::new())),
+      routes: Arc::new(Routes::new()),
       config,
       default_response_headers: Headers::new(),
       on_connection_close: Arc::new(None),
@@ -76,14 +72,6 @@ impl<'a> Server<'a> {
     }
   }
 
-  pub async fn route(&mut self, path: &str, method: HTTPMethod, on_request: RouteCallback) {
-    self.routes.write().await.push(Route {
-      path: Route::path_from_url(path),
-      method: method,
-      callback: on_request,
-    })
-  }
-
   pub fn set_default_response_headers(&mut self, headers: Headers) {
     self.default_response_headers = headers;
   }
@@ -94,7 +82,7 @@ impl<'a> Server<'a> {
 
   async fn handle_connection(
     mut stream: TcpStream,
-    routes: Arc<RwLock<Vec<Route>>>,
+    routes: Arc<Routes>,
     default_response_headers: &Headers,
     on_connection_close: OnConnectionClose,
   ) {
@@ -131,7 +119,7 @@ impl<'a> Server<'a> {
 
       println!("Received {request_method} request for {request_path}");
 
-      let routes = routes.read().await;
+      let routes = &routes.routes;
       let route = routes.iter().find(|route| {
         if route.method != request_method {
           false
