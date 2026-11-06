@@ -33,21 +33,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let default_response_headers = Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
   server.set_default_response_headers(default_response_headers);
 
-  let data_writer = Box::leak(Box::new(data.clone()));
-  server.set_on_connection_close(Arc::new(Some(Box::new(move |stream| {
-    let data_writer = data_writer.clone();
+  let data_writer = data.clone();
+  server.set_on_connection_close(move |stream| {
+    let data = data_writer.clone();
 
-    Box::pin(async move {
+    async move {
       let ip = stream.peer_addr().unwrap().to_string();
 
-      let machine = data_writer.write().await.unregister_machine(&ip);
+      let machine = data.write().await.unregister_machine(&ip);
 
       match machine {
         Some(machine) => println!("Successfully unregistered {machine} ({ip})"),
         None => println!("Failed to unregister machine from ip: {ip}"),
       };
-    })
-  }))));
+    }
+  });
 
   server.start().await?;
 
@@ -95,23 +95,19 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let password = Arc::new(config.password.clone());
 
-  routes.route(
-    "/",
-    HTTPMethod::Get(),
-    Arc::new(|request, response| {
-      Box::pin(async move {
-        response.status_code = StatusCode::Status200;
+  routes.route("/", HTTPMethod::Get(), |request, response| {
+    Box::pin(async move {
+      response.status_code = StatusCode::Status200;
 
-        try_respond(request, response).await;
-      })
-    }),
-  );
+      try_respond(request, response).await;
+    })
+  });
 
   let data_reader = data.clone();
   routes.route(
     "/get/[machine]/[key]",
     HTTPMethod::Post(),
-    Arc::new(move |request, response| {
+    move |request, response| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -134,14 +130,14 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         drop(data);
         try_respond(request, response).await;
       })
-    }),
+    },
   );
 
   let data_reader = data.clone();
   routes.route(
     "/get/machines",
     HTTPMethod::Post(),
-    Arc::new(move |request, response| {
+    move |request, response| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -161,7 +157,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
           try_respond(request, response).await;
         }
       })
-    }),
+    },
   );
 
   let data_writer = data.clone();
@@ -169,7 +165,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/set/[machine]",
     HTTPMethod::Post(),
-    Arc::new(move |request, response| {
+    move |request, response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
@@ -193,7 +189,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
           try_respond(request, response).await;
         }
       })
-    }),
+    },
   );
 
   let data_writer = data.clone();
@@ -201,7 +197,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
-    Arc::new(move |request, response| {
+    move |request, response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
@@ -244,7 +240,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
       };
 
       try_respond(request, response).await;
-    })}),
+    })},
   );
 
   routes

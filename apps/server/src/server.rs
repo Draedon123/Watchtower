@@ -23,14 +23,11 @@ pub struct Server<'a> {
   pub routes: Arc<Routes>,
 
   config: &'a Config,
-  on_connection_close: OnConnectionClose,
+  on_connection_close: Option<OnConnectionClose>,
 }
 
-pub type OnConnectionClose = Arc<
-  Option<
-    Box<dyn Fn(TcpStream) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync + 'static>,
-  >,
->;
+pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
+pub type OnConnectionClose = Arc<dyn Fn(TcpStream) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
@@ -38,7 +35,7 @@ impl<'a> Server<'a> {
       routes: Arc::new(Routes::new()),
       config,
       default_response_headers: Headers::new(),
-      on_connection_close: Arc::new(None),
+      on_connection_close: None,
     };
 
     Ok(server)
@@ -76,15 +73,27 @@ impl<'a> Server<'a> {
     self.default_response_headers = headers;
   }
 
-  pub fn set_on_connection_close(&mut self, callback: OnConnectionClose) {
-    self.on_connection_close = callback;
+  pub fn set_on_connection_close<F, Fut>(&mut self, callback: F)
+  where
+    F: Fn(TcpStream) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
+  {
+    self.on_connection_close =
+      Some(
+        Arc::new(move |stream| Box::pin(callback(stream)) as OnConnectionCloseFuture)
+          as OnConnectionClose,
+      );
+  }
+
+  pub fn clear_on_connection_close(&mut self) {
+    self.on_connection_close = None;
   }
 
   async fn handle_connection(
     mut stream: TcpStream,
     routes: Arc<Routes>,
     default_response_headers: &Headers,
-    on_connection_close: OnConnectionClose,
+    on_connection_close: Option<OnConnectionClose>,
   ) {
     loop {
       let mut http_request = match Request::read_from_buffer(&mut stream).await {
