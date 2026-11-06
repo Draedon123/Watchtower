@@ -3,15 +3,15 @@ use http::response::Response;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use watchtower_server::help::display_help_message;
-use watchtower_server::{config::RunMode, route::Routes};
 
 use http::method::HTTPMethod;
 use http::status_codes::StatusCode;
 
 use watchtower_server::{
-  config::Config,
+  config::{Config, RunMode},
   data::{Data, DataType},
+  help::display_help_message,
+  route::Routes,
   server::{Server, ServerRequest},
 };
 
@@ -54,31 +54,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-async fn authenticate(
-  request: &mut ServerRequest<'_>,
-  response: &mut Response,
-  server_password: &str,
-) -> bool {
+fn authenticate(request: &mut ServerRequest<'_>, server_password: &str) -> bool {
   let submitted_password = match request.http_request.headers.get_header("Authorization") {
     Some(password) => password,
     None => &String::new(),
   };
 
-  if *submitted_password != *server_password {
+  submitted_password == server_password
+}
+
+fn respond_if_unauthenticated(
+  request: &mut ServerRequest<'_>,
+  response: &mut Response,
+  server_password: &str,
+) -> bool {
+  let authenticated = !authenticate(request, server_password);
+
+  if authenticated {
     println!("Received unauthenticated request");
-
     response.status_code = StatusCode::Status401;
-    if let Err(error) = request.respond(response).await {
-      eprintln!(
-        "Failed to serve {} route \"{}\": {error}",
-        request.http_request.method, request.http_request.path
-      );
-    };
-
-    false
-  } else {
-    true
   }
+
+  authenticated
 }
 
 fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
@@ -113,8 +110,8 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
             response.status_code = StatusCode::Status200;
           }
           Err(error) => {
-            response.status_code = StatusCode::Status400;
             response.set_content(&error.to_string());
+            response.status_code = StatusCode::Status400;
           }
         };
 
@@ -161,7 +158,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
       Box::pin(async move {
         {
-          if !authenticate(request, &mut response, &server_password).await {
+          if !respond_if_unauthenticated(request, &mut response, &server_password) {
             return response;
           };
 
@@ -192,7 +189,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
       let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
-      if !authenticate(request, &mut response, &server_password).await {
+      if !respond_if_unauthenticated(request, &mut response, &server_password) {
         return response;
       };
 
