@@ -93,7 +93,7 @@ async fn try_respond(request: &mut ServerRequest<'_>, response: &mut Response) {
 fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let mut routes = Routes::new();
 
-  let server_password = Arc::new(config.password.clone());
+  let password = Arc::new(config.password.clone());
 
   routes.route(
     "/",
@@ -107,20 +107,19 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
     }),
   );
 
-  let data_reader_1 = Box::leak(Box::new(data.clone()));
+  let data_reader = data.clone();
   routes.route(
     "/get/[machine]/[key]",
     HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_reader_1 = data_reader_1.clone();
+    Arc::new(move |request, response| {
+      let data = data_reader.clone();
 
       Box::pin(async move {
         let machine = request.slugs.get("machine").unwrap();
         let key = request.slugs.get("key").unwrap();
 
-        let data = data_reader_1.read().await;
+        let data = data.read().await;
         let recent_data = data.get_machine_data_recent(machine, key);
-
         match recent_data {
           Ok(data_entry) => {
             response.set_content(&data_entry.to_string());
@@ -132,25 +131,26 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
           }
         };
 
+        drop(data);
         try_respond(request, response).await;
       })
     }),
   );
 
-  let data_reader_2 = Box::leak(Box::new(data.clone()));
+  let data_reader = data.clone();
   routes.route(
     "/get/machines",
     HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_reader_2 = data_reader_2.clone();
+    Arc::new(move |request, response| {
+      let data = data_reader.clone();
 
       Box::pin(async move {
         {
-          let data = data_reader_2.read().await;
-
           response.status_code = StatusCode::Status200;
           response.set_content(
             &data
+              .read()
+              .await
               .list_machines()
               .iter()
               .map(|string| string.as_str())
@@ -164,25 +164,24 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
     }),
   );
 
-  let data_writer_2 = Box::leak(Box::new(data.clone()));
-  let server_password_1 = Box::leak(Box::new(server_password.clone()));
+  let data_writer = data.clone();
+  let server_password = password.clone();
   routes.route(
     "/set/[machine]",
     HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_writer_2 = data_writer_2.clone();
-      let server_password_1 = server_password_1.clone();
+    Arc::new(move |request, response| {
+      let data = data_writer.clone();
+      let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
         {
-          if !authenticate(request, response, &server_password_1).await {
+          if !authenticate(request, response, &server_password).await {
             return;
           };
 
           let machine = request.slugs.get("machine").unwrap();
-          let mut data = data_writer_2.write().await;
 
-          response.status_code = if data.register_machine(
+          response.status_code = if data.write().await.register_machine(
             request.http_request.stream.peer_addr().unwrap().to_string(),
             machine,
           ) {
@@ -197,17 +196,17 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
     }),
   );
 
-  let data_writer_3 = Box::leak(Box::new(data.clone()));
-  let server_password_2 = Box::leak(Box::new(server_password.clone()));
+  let data_writer = data.clone();
+  let server_password = password.clone();
   routes.route(
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
-    Arc::new(|request, response| {
-      let data_writer_3 = data_writer_3.clone();
-      let server_password_2 = server_password_2.clone();
+    Arc::new(move |request, response| {
+      let data = data_writer.clone();
+      let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
-      if !authenticate(request, response, &server_password_2).await {
+      if !authenticate(request, response, &server_password).await {
         return;
       };
 
@@ -217,15 +216,13 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
       let value_type = if content.is_empty() { "" } else { content[0] };
       let value = if content.is_empty() { "" } else { content[1] };
-      let data = DataType::from((value_type, value));
+      let new_data = DataType::from((value_type, value));
 
-      let mut all_data = data_writer_3.write().await;
-
-      match data {
+      match new_data {
         DataType::F32Value(value) =>{
           response.status_code = StatusCode::Status200;
 
-          if let Err(error) = all_data.set_data(machine, key, DataType::F32Value(value)) {
+          if let Err(error) = data.write().await.set_data(machine, key, DataType::F32Value(value)) {
             eprintln!(
               "Failed to set f32 value of \"{key}\"=\"{value}\" for machine \"{machine}\": {error}"
             );
@@ -234,7 +231,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         DataType::Vec2U64Value(value) =>{
           response.status_code = StatusCode::Status200;
 
-          if let Err(error) = all_data.set_data(machine, key, DataType::Vec2U64Value(value)) {
+          if let Err(error) = data.write().await.set_data(machine, key, DataType::Vec2U64Value(value)) {
             eprintln!(
               "Failed to set vec2u64 value of \"{key}\"=\"({}, {})\" for machine \"{machine}\": {error}", value.0, value.1
             );
