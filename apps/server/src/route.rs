@@ -9,11 +9,10 @@ pub enum URLSection {
   Slug(String),
 }
 
-pub type RouteCallbackFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
+pub type RouteCallbackFuture<'a> = Pin<Box<dyn Future<Output = Response> + Send + 'a>>;
 
-pub type RouteCallback = Arc<
-  dyn for<'a> Fn(&'a mut ServerRequest, &'a mut Response) -> RouteCallbackFuture<'a> + Send + Sync,
->;
+pub type RouteCallback =
+  Arc<dyn for<'a> Fn(&'a mut ServerRequest, Response) -> RouteCallbackFuture<'a> + Send + Sync>;
 
 pub struct Routes {
   pub routes: Vec<Route>,
@@ -26,7 +25,7 @@ impl Routes {
 
   pub fn route<F>(&mut self, path: &str, method: HTTPMethod, on_request: F)
   where
-    F: for<'a> Fn(&'a mut ServerRequest, &'a mut Response) -> RouteCallbackFuture<'a>
+    F: for<'a> Fn(&'a mut ServerRequest, Response) -> RouteCallbackFuture<'a>
       + Send
       + Sync
       + 'static,

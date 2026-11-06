@@ -81,25 +81,16 @@ async fn authenticate(
   }
 }
 
-async fn try_respond(request: &mut ServerRequest<'_>, response: &mut Response) {
-  if let Err(error) = request.respond(response).await {
-    eprintln!(
-      "Failed to serve {} route \"{}\": {error}",
-      request.http_request.method, request.http_request.path
-    );
-  };
-}
-
 fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let mut routes = Routes::new();
 
   let password = Arc::new(config.password.clone());
 
-  routes.route("/", HTTPMethod::Get(), |request, response| {
+  routes.route("/", HTTPMethod::Get(), |_, mut response| {
     Box::pin(async move {
       response.status_code = StatusCode::Status200;
 
-      try_respond(request, response).await;
+      response
     })
   });
 
@@ -107,7 +98,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/get/[machine]/[key]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, mut response| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -127,8 +118,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
           }
         };
 
-        drop(data);
-        try_respond(request, response).await;
+        response
       })
     },
   );
@@ -137,7 +127,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/get/machines",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |_, mut response| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -154,7 +144,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
               .join("\n"),
           );
 
-          try_respond(request, response).await;
+          response
         }
       })
     },
@@ -165,14 +155,14 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/set/[machine]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, mut response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
         {
-          if !authenticate(request, response, &server_password).await {
-            return;
+          if !authenticate(request, &mut response, &server_password).await {
+            return response;
           };
 
           let machine = request.slugs.get("machine").unwrap();
@@ -186,7 +176,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
             StatusCode::Status400
           };
 
-          try_respond(request, response).await;
+          response
         }
       })
     },
@@ -197,13 +187,13 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/set/[machine]/[key]",
     HTTPMethod::Post(),
-    move |request, response| {
+    move |request, mut response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
-      if !authenticate(request, response, &server_password).await {
-        return;
+      if !authenticate(request, &mut response, &server_password).await {
+        return response;
       };
 
       let content: Vec<_> = request.http_request.get_content().lines().collect();
@@ -239,8 +229,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
       };
 
-      try_respond(request, response).await;
-    })},
+response    })},
   );
 
   routes

@@ -155,7 +155,14 @@ impl<'a> Server<'a> {
         Some(route) => {
           response.headers = default_response_headers.clone();
 
-          (route.callback)(&mut request, &mut response).await;
+          let response = (route.callback)(&mut request, response).await;
+
+          if let Err(error) = request.respond(&response).await {
+            eprintln!(
+              "Failed to serve {} route \"{}\": {error}",
+              request.http_request.method, request.http_request.path
+            );
+          };
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
