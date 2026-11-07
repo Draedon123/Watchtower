@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LineGraph from "$lib/components/graphs/LineGraph.svelte";
   import Machine, {
     type MachineData,
     type MemoryData,
@@ -112,6 +113,10 @@
   {/if}
 </div>
 
+<div class="graph">
+  <LineGraph x={[0, 1, 2, 3]} y={[0, 1, 4, 9]}></LineGraph>
+</div>
+
 <style lang="scss">
   h1 {
     text-align: center;
@@ -128,5 +133,13 @@
   .offline {
     display: block;
     text-align: center;
+  }
+
+  .graph {
+    width: 50vw;
+    height: 50vh;
+    border: 1px solid white;
+    padding: 25px;
+    margin: 10px;
   }
 </style>
