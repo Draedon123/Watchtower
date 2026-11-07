@@ -4,6 +4,11 @@
     type MemoryData,
   } from "$lib/components/Machine.svelte";
   import {
+    currentTime_ms,
+    msToString,
+    relativeTimeToString,
+  } from "$lib/dateTime";
+  import {
     getCpuUsages,
     getMachines,
     getPhysicalMemory,
@@ -25,8 +30,10 @@
           swapMemory: swapMemory[i],
         }))
   );
-  let loop: NodeJS.Timeout | null = null;
   let loadedFirstData = $state(false);
+  let disconnectedSince: number | null = $state(null);
+  let currentTime: number = $state(currentTime_ms());
+  let loop: NodeJS.Timeout | null = null;
 
   function setIntervalImmediately(
     callback: () => void,
@@ -39,7 +46,21 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      machines = await getMachines().catch(() => null);
+      machines = await getMachines()
+        .then((machines) => {
+          disconnectedSince = null;
+
+          return machines;
+        })
+        .catch(() => {
+          if (disconnectedSince === null) {
+            disconnectedSince = currentTime_ms();
+          }
+
+          currentTime = currentTime_ms();
+
+          return null;
+        });
       loadedFirstData = true;
 
       cpuUsages = await getCpuUsages(machines);
@@ -63,7 +84,17 @@
 <div class="machines">
   {#if machines === null}
     {#if loadedFirstData}
-      <p>Could not fetch machines. Perhaps the server is down?</p>
+      {@const downtime_ms = currentTime - (disconnectedSince as number)}
+      <div class="offline">
+        <h2>Server Offline!</h2>
+
+        <p>
+          Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
+            currentTime - downtime_ms,
+            "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
+          )})
+        </p>
+      </div>
     {:else}
       <p>Loading data...</p>
     {/if}
@@ -89,5 +120,10 @@
     justify-content: space-evenly;
 
     gap: 10px 20px;
+  }
+
+  .offline {
+    display: block;
+    text-align: center;
   }
 </style>
