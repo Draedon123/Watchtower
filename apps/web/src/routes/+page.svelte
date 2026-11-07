@@ -16,7 +16,7 @@
   } from "$lib/request";
   import { onDestroy, onMount } from "svelte";
 
-  let machines: string[] | null = $state(null);
+  let machines: string[] | null | Error = $state(null);
   let cpuUsages: (number | null)[] = $state([]);
   let physicalMemory: (MemoryData | null)[] = $state([]);
   let swapMemory: (MemoryData | null)[] = $state([]);
@@ -30,7 +30,7 @@
           swapMemory: swapMemory[i],
         }))
   );
-  let loadedFirstData = $state(false);
+
   let disconnectedSince: number | null = $state(null);
   let currentTime: number = $state(currentTime_ms());
   let loop: NodeJS.Timeout | null = null;
@@ -52,16 +52,19 @@
 
           return machines;
         })
-        .catch(() => {
+        .catch((error: Error) => {
           if (disconnectedSince === null) {
             disconnectedSince = currentTime_ms();
           }
 
           currentTime = currentTime_ms();
 
-          return null;
+          return error;
         });
-      loadedFirstData = true;
+
+      if (machines instanceof Error) {
+        return;
+      }
 
       cpuUsages = await getCpuUsages(machines);
       physicalMemory = await getPhysicalMemory(machines);
@@ -82,22 +85,22 @@
 <h1>Watchtower</h1>
 
 <div class="machines">
-  {#if machines === null}
-    {#if loadedFirstData}
-      {@const downtime_ms = currentTime - (disconnectedSince as number)}
-      <div class="offline">
-        <h2>Server Offline!</h2>
+  {#if machines instanceof Error}
+    {@const downtime_ms = currentTime - (disconnectedSince as number)}
+    <div class="offline">
+      <h2>Server Offline!</h2>
 
-        <p>
-          Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
-            currentTime - downtime_ms,
-            "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
-          )})
-        </p>
-      </div>
-    {:else}
-      <p>Loading data...</p>
-    {/if}
+      <p>Error: {machines.message}</p>
+
+      <p>
+        Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
+          currentTime - downtime_ms,
+          "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
+        )})
+      </p>
+    </div>
+  {:else if machines === null}
+    <p>Loading data...</p>
   {:else}
     {#if machines.length === 0}
       <p>No machines monitored!</p>

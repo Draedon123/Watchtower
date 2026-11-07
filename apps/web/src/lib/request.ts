@@ -6,7 +6,15 @@ const WATCHTOWER_ADDRESS = dev
   : "http://watchtowerapi.draedon.xyz";
 
 async function request(method: string, path: string): Promise<string> {
-  return (await fetch(`${WATCHTOWER_ADDRESS}/${path}`, { method })).text();
+  const response = await fetch(`${WATCHTOWER_ADDRESS}/${path}`, {
+    method,
+  });
+
+  if (!response.ok) {
+    throw new Error(`${response.status}: ${response.statusText}`);
+  }
+
+  return response.text();
 }
 
 function post(path: string): Promise<string> {
