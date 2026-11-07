@@ -6,6 +6,11 @@
     bottom?: number;
     right?: number;
     top?: number;
+    markerColour?: string;
+    lineColour?: string;
+    markerRadius?: number;
+    lineWidth?: number;
+    borderColour?: string;
   };
 
   let {
@@ -15,20 +20,17 @@
     bottom: _bottom,
     right: _right,
     top: _top,
+    markerColour = "#fff",
+    lineColour = "#fff",
+    markerRadius = 5,
+    lineWidth = 2,
+    borderColour = "none",
   }: Props = $props();
 
-  let minX = $derived(
-    x.reduce((min, current) => (current < min ? current : min))
-  );
-  let maxX = $derived(
-    x.reduce((max, current) => (current > max ? current : max))
-  );
-  let minY = $derived(
-    y.reduce((min, current) => (current < min ? current : min))
-  );
-  let maxY = $derived(
-    y.reduce((max, current) => (current > max ? current : max))
-  );
+  let minX = $derived(min(x));
+  let maxX = $derived(max(x));
+  let minY = $derived(min(y));
+  let maxY = $derived(max(y));
 
   let rangeX = $derived(maxX - minX);
   let rangeY = $derived(maxY - minY);
@@ -50,22 +52,46 @@
   function yPos(y: number) {
     return height - height * ((y - bottom) / (top - bottom));
   }
+
+  function min(array: number[]): number {
+    return array.reduce((min, current) => (current < min ? current : min));
+  }
+
+  function max(array: number[]): number {
+    return array.reduce((max, current) => (current > max ? current : max));
+  }
 </script>
 
-<svg {width} {height} bind:clientWidth={width} bind:clientHeight={height}>
+<svg
+  {width}
+  {height}
+  bind:clientWidth={width}
+  bind:clientHeight={height}
+  style="border: 1px solid {borderColour}"
+>
   {#each { length: x.length }, i}
     {@const xpos = xPos(x[i])}
     {@const ypos = yPos(y[i])}
-    <circle class="point" cx={xpos} cy={ypos} r="5" />
-    {#if i > 0}
+
+    {#if i < x.length - 1}
       <line
         class="connector"
-        x1={xPos(x[i - 1])}
-        y1={yPos(y[i - 1])}
-        x2={xpos}
-        y2={ypos}
+        x1={xpos}
+        y1={ypos}
+        x2={xPos(x[i + 1])}
+        y2={yPos(y[i + 1])}
+        stroke={lineColour}
+        stroke-width={lineWidth}
       />
     {/if}
+
+    <circle
+      class="point"
+      cx={xpos}
+      cy={ypos}
+      r={markerRadius}
+      fill={markerColour}
+    />
   {/each}
 </svg>
 
@@ -73,13 +99,5 @@
   svg {
     width: 100%;
     height: 100%;
-  }
-
-  .point {
-    fill: white;
-  }
-
-  .connector {
-    stroke: white;
   }
 </style>

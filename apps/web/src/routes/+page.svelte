@@ -114,7 +114,14 @@
 </div>
 
 <div class="graph">
-  <LineGraph x={[0, 1, 2, 3]} y={[0, 1, 4, 9]}></LineGraph>
+  <LineGraph
+    x={[0, 1, 2, 3]}
+    y={[0, 1, 4, 9]}
+    markerColour="#b0b"
+    lineColour="#8188"
+    lineWidth={3}
+    borderColour="#fff"
+  ></LineGraph>
 </div>
 
 <style lang="scss">
@@ -138,7 +145,6 @@
   .graph {
     width: 50vw;
     height: 50vh;
-    border: 1px solid white;
     padding: 25px;
     margin: 10px;
   }
