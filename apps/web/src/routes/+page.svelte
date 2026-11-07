@@ -1,5 +1,4 @@
 <script lang="ts">
-  import LineGraph from "$lib/components/graphs/LineGraph.svelte";
   import Machine, {
     type MachineData,
     type MemoryData,
@@ -15,22 +14,32 @@
     getPhysicalMemory,
     getSwapMemory,
   } from "$lib/request";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
 
-  let machines: string[] | null | Error = $state(null);
-  let cpuUsages: (number | null)[] = $state([]);
-  let physicalMemory: (MemoryData | null)[] = $state([]);
-  let swapMemory: (MemoryData | null)[] = $state([]);
-  let machineData: MachineData[] = $derived(
-    machines === null
-      ? []
-      : (machines as string[]).map((name, i) => ({
-          name,
-          cpuUsage: cpuUsages[i],
-          physicalMemory: physicalMemory[i],
-          swapMemory: swapMemory[i],
-        }))
+  let machines: string[] | null | Error = $state(
+    null as string[] | null | Error
   );
+
+  let machineStats = $state({
+    cpuUsages: [] as (number | null)[],
+    physicalMemory: [] as (MemoryData | null)[],
+    swapMemory: [] as (MemoryData | null)[],
+  });
+
+  let machineData: MachineData[] = $derived.by(() => {
+    if (machines === null || machines instanceof Error) {
+      return [];
+    }
+
+    return untrack(() =>
+      (machines as string[]).map((name, i) => ({
+        name,
+        cpuUsage: machineStats.cpuUsages[i],
+        physicalMemory: machineStats.physicalMemory[i],
+        swapMemory: machineStats.swapMemory[i],
+      }))
+    );
+  });
 
   let disconnectedSince: number | null = $state(null);
   let currentTime: number = $state(currentTime_ms());
@@ -67,9 +76,17 @@
         return;
       }
 
-      cpuUsages = await getCpuUsages(machines);
-      physicalMemory = await getPhysicalMemory(machines);
-      swapMemory = await getSwapMemory(machines);
+      const [cpuUsages, physicalMemory, swapMemory] = await Promise.all([
+        getCpuUsages(machines),
+        getPhysicalMemory(machines),
+        getSwapMemory(machines),
+      ]);
+
+      machineStats = {
+        cpuUsages,
+        physicalMemory,
+        swapMemory,
+      };
     }, 1000);
   });
 
@@ -113,17 +130,6 @@
   {/if}
 </div>
 
-<div class="graph">
-  <LineGraph
-    x={[0, 1, 2, 3]}
-    y={[0, 1, 4, 9]}
-    markerColour="#b0b"
-    lineColour="#8188"
-    lineWidth={3}
-    borderColour="#fff"
-  ></LineGraph>
-</div>
-
 <style lang="scss">
   h1 {
     text-align: center;
@@ -135,17 +141,11 @@
     justify-content: space-evenly;
 
     gap: 10px 20px;
+    max-width: 95vw;
   }
 
   .offline {
     display: block;
     text-align: center;
-  }
-
-  .graph {
-    width: 50vw;
-    height: 50vh;
-    padding: 25px;
-    margin: 10px;
   }
 </style>

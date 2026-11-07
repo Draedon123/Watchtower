@@ -1,7 +1,6 @@
 <script lang="ts">
   type Props = {
-    x: number[];
-    y: number[];
+    data: { x: number[]; y: number[] };
     left?: number;
     bottom?: number;
     right?: number;
@@ -14,8 +13,7 @@
   };
 
   let {
-    x,
-    y,
+    data,
     left: _left,
     bottom: _bottom,
     right: _right,
@@ -26,6 +24,9 @@
     lineWidth = 2,
     borderColour = "none",
   }: Props = $props();
+
+  let x = $derived(data.x);
+  let y = $derived(data.y);
 
   let minX = $derived(min(x));
   let maxX = $derived(max(x));
@@ -54,11 +55,17 @@
   }
 
   function min(array: number[]): number {
-    return array.reduce((min, current) => (current < min ? current : min));
+    return array.reduce(
+      (min, current) => (current < min ? current : min),
+      Infinity
+    );
   }
 
   function max(array: number[]): number {
-    return array.reduce((max, current) => (current > max ? current : max));
+    return array.reduce(
+      (max, current) => (current > max ? current : max),
+      -Infinity
+    );
   }
 </script>
 
