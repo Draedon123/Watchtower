@@ -2,9 +2,20 @@
   type Props = {
     x: number[];
     y: number[];
+    left?: number;
+    bottom?: number;
+    right?: number;
+    top?: number;
   };
 
-  let { x, y }: Props = $props();
+  let {
+    x,
+    y,
+    left: _left,
+    bottom: _bottom,
+    right: _right,
+    top: _top,
+  }: Props = $props();
 
   let minX = $derived(
     x.reduce((min, current) => (current < min ? current : min))
@@ -22,15 +33,22 @@
   let rangeX = $derived(maxX - minX);
   let rangeY = $derived(maxY - minY);
 
+  const PADDING = 0.1;
+
+  let left = $derived(_left ?? minX - PADDING * rangeX);
+  let right = $derived(_right ?? maxX + PADDING * rangeX);
+  let bottom = $derived(_bottom ?? minY - PADDING * rangeY);
+  let top = $derived(_top ?? maxY + PADDING * rangeY);
+
   let width: number = $state(1);
   let height: number = $state(1);
 
   function xPos(x: number) {
-    return width * ((x - minX) / rangeX);
+    return width * ((x - left) / (right - left));
   }
 
   function yPos(y: number) {
-    return height - height * ((y - minY) / rangeY);
+    return height - height * ((y - bottom) / (top - bottom));
   }
 </script>
 
@@ -57,9 +75,11 @@
     height: 100%;
   }
 
-  .point,
-  .connector {
+  .point {
     fill: white;
+  }
+
+  .connector {
     stroke: white;
   }
 </style>
