@@ -68,9 +68,9 @@ fn respond_if_unauthenticated(
   response: &mut Response,
   server_password: &str,
 ) -> bool {
-  let authenticated = !authenticate(request, server_password);
+  let authenticated = authenticate(request, server_password);
 
-  if authenticated {
+  if !authenticated {
     println!("Received unauthenticated request");
     response.status_code = StatusCode::Status401;
   }
