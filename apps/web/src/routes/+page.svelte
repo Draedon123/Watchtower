@@ -73,6 +73,7 @@
         });
 
       if (newMachines instanceof Error) {
+        machines = newMachines;
         return;
       }
 
@@ -103,33 +104,33 @@
 
 <h1>Watchtower</h1>
 
-<div class="machines">
-  {#if machines instanceof Error}
-    {@const downtime_ms = currentTime - (disconnectedSince as number)}
-    <div class="offline">
-      <h2>Server Offline!</h2>
+{#if machines instanceof Error}
+  {@const downtime_ms = currentTime - (disconnectedSince as number)}
+  <div class="center">
+    <h2>Server Offline!</h2>
 
-      <p>Error: {machines.message}</p>
+    <p>Error: {machines.message}</p>
 
-      <p>
-        Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
-          currentTime - downtime_ms,
-          "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
-        )})
-      </p>
-    </div>
-  {:else if machines === null}
-    <p>Loading data...</p>
+    <p>
+      Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
+        currentTime - downtime_ms,
+        "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
+      )})
+    </p>
+  </div>
+{:else if machines === null}
+  <p class="center">Loading data...</p>
+{:else}
+  {#if machines.length === 0}
+    <p class="center">No machines monitored!</p>
   {:else}
-    {#if machines.length === 0}
-      <p>No machines monitored!</p>
-    {:else}
+    <div class="machines">
       {#each machines as machine, i (machine)}
         <Machine {...machineData[i]} />
       {/each}
-    {/if}
+    </div>
   {/if}
-</div>
+{/if}
 
 <style lang="scss">
   h1 {
@@ -143,8 +144,7 @@
     margin: 0 auto;
   }
 
-  .offline {
-    display: block;
+  .center {
     text-align: center;
   }
 
