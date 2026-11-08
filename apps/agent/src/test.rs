@@ -61,11 +61,11 @@ impl Instance {
       * 1024
       * possible_swap_memory_gib[rng.random::<u8>() as usize % possible_swap_memory_gib.len()];
 
-    let cpu_usage: f32 = rng.random_range(0.0..0.5);
+    let cpu_usage: f32 = rng.random_range(0.3..0.7);
     let physical_free =
-      rng.random_range(0.05 * (max_physical_kib as f32)..0.8 * (max_physical_kib as f32)) as u64;
+      rng.random_range(0.2 * (max_physical_kib as f32)..0.8 * (max_physical_kib as f32)) as u64;
     let swap_free =
-      rng.random_range(0.05 * (max_swap_kib as f32)..0.8 * (max_swap_kib as f32)) as u64;
+      rng.random_range(0.2 * (max_swap_kib as f32)..0.8 * (max_swap_kib as f32)) as u64;
 
     let max_physical = max_physical_kib as u64;
     let max_swap = max_swap_kib as u64;
