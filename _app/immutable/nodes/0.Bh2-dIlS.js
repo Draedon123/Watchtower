@@ -1,0 +1,1 @@
+import{H as e,b as t,j as n,p as r,v as i}from"../chunks/BnvXAs0W.js";import"../chunks/xihTtKlq.js";var a=t(`<!> <meta name="viewport" content="width=device-width, initial-scale=1.0"/>`,1);function o(t,o){var s=a(),c=n(s);r(c,()=>o.children),e(2),i(t,s)}export{o as component};
