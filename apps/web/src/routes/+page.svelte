@@ -56,7 +56,7 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      machines = await getMachines()
+      const newMachines = await getMachines()
         .then((machines) => {
           disconnectedSince = null;
 
@@ -72,16 +72,17 @@
           return error;
         });
 
-      if (machines instanceof Error) {
+      if (newMachines instanceof Error) {
         return;
       }
 
       const [cpuUsages, physicalMemory, swapMemory] = await Promise.all([
-        getCpuUsages(machines),
-        getPhysicalMemory(machines),
-        getSwapMemory(machines),
+        getCpuUsages(newMachines),
+        getPhysicalMemory(newMachines),
+        getSwapMemory(newMachines),
       ]);
 
+      machines = newMachines;
       machineStats = {
         cpuUsages,
         physicalMemory,
@@ -136,16 +137,26 @@
   }
 
   .machines {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-evenly;
-
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px 20px;
-    max-width: 95vw;
+    margin: 0 auto;
   }
 
   .offline {
     display: block;
     text-align: center;
+  }
+
+  @media (max-width: 700px) {
+    .machines {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (min-width: 700px) and (max-width: 1050px) {
+    .machines {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 </style>
