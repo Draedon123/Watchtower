@@ -9,7 +9,6 @@
     lineColour?: string;
     markerRadius?: number;
     lineWidth?: number;
-    borderColour?: string;
   };
 
   let {
@@ -22,7 +21,6 @@
     lineColour = "#fff",
     markerRadius = 5,
     lineWidth = 2,
-    borderColour = "none",
   }: Props = $props();
 
   let x = $derived(data.x);
@@ -81,13 +79,7 @@
   }
 </script>
 
-<svg
-  {width}
-  {height}
-  bind:clientWidth={width}
-  bind:clientHeight={height}
-  style="border: 1px solid {borderColour}"
->
+<svg {width} {height} bind:clientWidth={width} bind:clientHeight={height}>
   {#each yAxisGrid as y (y)}
     <line
       class="grid"

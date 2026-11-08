@@ -109,7 +109,6 @@
       right={trackTime_s}
       bottom={0}
       top={1}
-      borderColour="#fff"
     ></LineGraph>
   </div>
 </div>
@@ -123,7 +122,7 @@
     flex-grow: 1;
     max-width: 100%;
 
-    background: #0008;
+    background: #0004;
 
     padding: 5px 15px;
 
@@ -137,5 +136,9 @@
     width: 100%;
     margin: 0 0 1em;
     box-sizing: border-box;
+
+    border: 1px solid #a8a8;
+    border-radius: 5px;
+    background-color: #0004;
   }
 </style>
