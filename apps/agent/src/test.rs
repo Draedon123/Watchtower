@@ -139,14 +139,18 @@ impl Instance {
   }
 
   fn update_data(&mut self) {
-    self.cpu_usage = f32::clamp(self.cpu_usage * self.rng.random_range(0.9..1.1), 0.0, 1.0);
+    self.cpu_usage = f32::clamp(
+      self.cpu_usage * self.rng.random_range((1.0 / 1.1)..1.1),
+      0.0,
+      1.0,
+    );
     self.physical_free = u64::clamp(
-      (self.physical_free as f32 * self.rng.random_range(0.9..1.1)) as u64,
+      (self.physical_free as f32 * self.rng.random_range((1.0 / 1.1)..1.1)) as u64,
       0,
       self.max_physical,
     );
     self.swap_free = u64::clamp(
-      (self.swap_free as f32 * self.rng.random_range(0.9..1.1)) as u64,
+      (self.swap_free as f32 * self.rng.random_range((1.0 / 1.1)..1.1)) as u64,
       0,
       self.max_swap,
     );
