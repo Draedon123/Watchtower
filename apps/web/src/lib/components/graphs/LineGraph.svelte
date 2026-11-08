@@ -46,6 +46,18 @@
   let width: number = $state(1);
   let height: number = $state(1);
 
+  let yAxisGrid = $derived.by(() => {
+    const NUM_LINES = 4;
+    const gridSpacing = (top - bottom) / (NUM_LINES + 1);
+    const grid: number[] = [];
+
+    for (let i = 1; i <= NUM_LINES; i++) {
+      grid.push(bottom + i * gridSpacing);
+    }
+
+    return grid;
+  });
+
   function xPos(x: number) {
     return width * ((x - left) / (right - left));
   }
@@ -76,6 +88,16 @@
   bind:clientHeight={height}
   style="border: 1px solid {borderColour}"
 >
+  {#each yAxisGrid as y (y)}
+    <line
+      class="grid"
+      x1={xPos(left)}
+      y1={yPos(y)}
+      x2={xPos(right)}
+      y2={yPos(y)}
+    />
+  {/each}
+
   {#each { length: x.length }, i}
     {@const xpos = xPos(x[i])}
     {@const ypos = yPos(y[i])}
@@ -106,5 +128,9 @@
   svg {
     width: 100%;
     height: 100%;
+  }
+
+  .grid {
+    stroke: #8888;
   }
 </style>
