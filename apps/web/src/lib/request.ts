@@ -1,5 +1,5 @@
 import { dev } from "$app/env";
-import type { MemoryData } from "./components/Machine.svelte";
+import type { MachineData } from "./components/Machine.svelte";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
@@ -32,73 +32,79 @@ async function getMachines(): Promise<string[]> {
         .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 }
 
-async function getCpuUsages(
+async function getAll(
   machines: string[] | null
-): Promise<(number | null)[]> {
+): Promise<(MachineData | null)[]> {
   if (machines === null) {
     return [];
   }
 
-  const cpuUsagePromises = machines.map((machine) =>
-    post(`get/${machine}/cpu_usage`).catch(() => null)
-  );
-
-  const cpuUsagesRaw = await Promise.all(cpuUsagePromises);
-  return cpuUsagesRaw.map((usage) => {
-    const usageNumeric =
-      usage === null ? NaN : parseFloat(usage.split("\n")[1]);
-
-    return isNaN(usageNumeric) ? null : usageNumeric;
-  });
-}
-
-async function getMemory(
-  machines: string[] | null,
-  type: "physical" | "swap"
-): Promise<(MemoryData | null)[]> {
-  if (machines === null) {
-    return [];
-  }
-
-  const key = type === "physical" ? "memory_physical" : "memory_swap";
   const promises = machines.map((machine) =>
-    post(`get/${machine}/${key}`).catch(() => null)
+    post(`all/${machine}`).catch(() => null)
   );
-  const rawData = await Promise.all(promises);
 
-  return rawData.map((data) => {
-    if (data === "" || data === null) {
+  const data = await Promise.all(promises);
+
+  return data.map((data, i) => {
+    if (data === null) {
       return null;
     }
 
     const lines = data.split("\n");
-    const split = lines[1].split(",");
-    const available_kib = parseInt(split[0]);
-    const total_kib = parseInt(split[1]);
 
-    if (isNaN(available_kib) || isNaN(total_kib)) {
-      return null;
+    const entry: MachineData = { name: machines[i] };
+
+    for (let i = 0; i < lines.length / 4; i++) {
+      const key = lines[i * 4];
+      const type = lines[i * 4 + 1];
+      const value = lines[i * 4 + 2];
+      // const timestamp = lines[i + 3];
+
+      const parsedValue = parseValue(type, value);
+
+      switch (key) {
+        case "cpu_usage": {
+          entry.cpuUsage = parsedValue;
+          break;
+        }
+
+        case "memory_physical": {
+          entry.physicalMemory = {
+            available_kib: parsedValue[0],
+            total_kib: parsedValue[1],
+          };
+          break;
+        }
+
+        case "memory_swap": {
+          entry.swapMemory = {
+            available_kib: parsedValue[0],
+            total_kib: parsedValue[1],
+          };
+          break;
+        }
+      }
     }
 
-    const memoryData: MemoryData = {
-      available_kib,
-      total_kib,
-    };
-
-    return memoryData;
+    return entry;
   });
 }
 
-async function getPhysicalMemory(
-  machines: string[] | null
-): Promise<(MemoryData | null)[]> {
-  return getMemory(machines, "physical");
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+function parseValue(type: string, value: string): any {
+  switch (type) {
+    case "f32": {
+      return parseFloat(value);
+    }
+
+    case "vec2u64": {
+      return value.split(",").map((value) => parseInt(value));
+    }
+
+    default: {
+      return null;
+    }
+  }
 }
 
-async function getSwapMemory(
-  machines: string[] | null
-): Promise<(MemoryData | null)[]> {
-  return getMemory(machines, "swap");
-}
-
-export { post, getMachines, getCpuUsages, getPhysicalMemory, getSwapMemory };
+export { post, getMachines, getAll };

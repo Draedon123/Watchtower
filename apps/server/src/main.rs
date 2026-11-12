@@ -122,6 +122,47 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_reader = data.clone();
   routes.route(
+    "/all/[machine]",
+    HTTPMethod::Post(),
+    move |request, mut response| {
+      let data = data_reader.clone();
+
+      Box::pin(async move {
+        let machine = request.slugs.get("machine").unwrap();
+
+        let data = data.read().await;
+        let machine_data = data.get_machine_data_all(machine);
+        match machine_data {
+          Ok(data_entry) => {
+            response.set_content(
+              &data_entry
+                .keys()
+                .filter_map(|key| {
+                  data
+                    .get_machine_data_recent(machine, key)
+                    .ok()
+                    .map(|data| (key, data))
+                })
+                .fold(String::new(), |joined, (key, data)| {
+                  format!("{joined}\n{key}\n{data}")
+                })
+                .trim(),
+            );
+            response.status_code = StatusCode::Status200;
+          }
+          Err(error) => {
+            response.set_content(&error.to_string());
+            response.status_code = StatusCode::Status400;
+          }
+        };
+
+        response
+      })
+    },
+  );
+
+  let data_reader = data.clone();
+  routes.route(
     "/get/machines",
     HTTPMethod::Post(),
     move |_, mut response| {

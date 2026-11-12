@@ -153,7 +153,11 @@ impl Data {
   pub fn get_machine_data_recent(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {
     Ok(
       self
-        .get_machine_data_all(machine, data_key)?
+        .machine_data
+        .get(machine)
+        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+        .get(data_key)
+        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?
         .front()
         .ok_or(DataResultError::NoValuesError(data_key.to_string()))?,
     )
@@ -162,15 +166,12 @@ impl Data {
   pub fn get_machine_data_all(
     &self,
     machine: &str,
-    data_key: &str,
-  ) -> DataResult<&VecDeque<DataEntry>> {
+  ) -> Result<&HashMap<String, VecDeque<DataEntry>>, DataResultError> {
     Ok(
       self
         .machine_data
         .get(machine)
-        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
-        .get(data_key)
-        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?,
+        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?,
     )
   }
 

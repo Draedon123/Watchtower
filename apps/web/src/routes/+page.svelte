@@ -1,45 +1,18 @@
 <script lang="ts">
-  import Machine, {
-    type MachineData,
-    type MemoryData,
-  } from "$lib/components/Machine.svelte";
+  import Machine, { type MachineData } from "$lib/components/Machine.svelte";
   import {
     currentTime_ms,
     msToString,
     relativeTimeToString,
   } from "$lib/dateTime";
-  import {
-    getCpuUsages,
-    getMachines,
-    getPhysicalMemory,
-    getSwapMemory,
-  } from "$lib/request";
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { getAll, getMachines } from "$lib/request";
+  import { onDestroy, onMount } from "svelte";
 
   let machines: string[] | null | Error = $state(
     null as string[] | null | Error
   );
 
-  let machineStats = $state({
-    cpuUsages: [] as (number | null)[],
-    physicalMemory: [] as (MemoryData | null)[],
-    swapMemory: [] as (MemoryData | null)[],
-  });
-
-  let machineData: MachineData[] = $derived.by(() => {
-    if (machines === null || machines instanceof Error) {
-      return [];
-    }
-
-    return untrack(() =>
-      (machines as string[]).map((name, i) => ({
-        name,
-        cpuUsage: machineStats.cpuUsages[i],
-        physicalMemory: machineStats.physicalMemory[i],
-        swapMemory: machineStats.swapMemory[i],
-      }))
-    );
-  });
+  let machineData: (MachineData | null)[] = $state([]);
 
   let disconnectedSince: number | null = $state(null);
   let currentTime: number = $state(currentTime_ms());
@@ -77,18 +50,8 @@
         return;
       }
 
-      const [cpuUsages, physicalMemory, swapMemory] = await Promise.all([
-        getCpuUsages(newMachines),
-        getPhysicalMemory(newMachines),
-        getSwapMemory(newMachines),
-      ]);
-
       machines = newMachines;
-      machineStats = {
-        cpuUsages,
-        physicalMemory,
-        swapMemory,
-      };
+      machineData = await getAll(machines);
     }, 1000);
   });
 
@@ -126,7 +89,9 @@
   {:else}
     <div class="machines">
       {#each machines as machine, i (machine)}
-        <Machine {...machineData[i]} />
+        {@const data =
+          machineData[i] === null ? { name: machine } : machineData[i]}
+        <Machine {...data} />
       {/each}
     </div>
   {/if}
