@@ -1,6 +1,6 @@
 import { dev } from "$app/env";
 import type { MachineData } from "./components/MachineCard.svelte";
-import { F32Value, stringToValue, Vec2U64Value } from "./DataTypes";
+import { DataType, F32Value, stringToValue, Vec2U64Value } from "./DataTypes";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
@@ -58,7 +58,7 @@ async function getAllStatisticsByMachine(
       const key = lines[i * 4];
       const type = lines[i * 4 + 1];
       const value = lines[i * 4 + 2];
-      // const timestamp = lines[i + 3];
+      // const timestamp = lines[i * 4 + 3];
 
       const parsedValue = stringToValue(type, value);
 
@@ -66,7 +66,7 @@ async function getAllStatisticsByMachine(
         case "cpu_usage": {
           if (!(parsedValue instanceof F32Value)) {
             throw new Error(
-              `Expected f32 value. Instead received ${parsedValue.stringName}`
+              `Expected ${key} to have ${F32Value.stringName} value. Instead received ${parsedValue.stringName}`
             );
           }
 
@@ -78,7 +78,7 @@ async function getAllStatisticsByMachine(
         case "memory_swap": {
           if (!(parsedValue instanceof Vec2U64Value)) {
             throw new Error(
-              `Expected vec2u64 value. Instead received ${parsedValue.stringName}`
+              `Expected ${key} to have ${Vec2U64Value.stringName} value. Instead received ${parsedValue.stringName}`
             );
           }
 
@@ -95,4 +95,30 @@ async function getAllStatisticsByMachine(
   });
 }
 
-export { post, getMachines, getAllStatisticsByMachine };
+async function getAllStatisticsByKey(
+  key: string
+): Promise<{ machine: string; data: DataType }[]> {
+  const response = (await post(`stats/${key}`)).trim();
+
+  if (response === "") {
+    return [];
+  }
+
+  const lines = response.split("\n");
+  const data: { machine: string; data: DataType }[] = [];
+
+  for (let i = 0; i < lines.length / 4; i++) {
+    const machine = lines[i * 4];
+    const dataType = lines[i * 4 + 1];
+    const value = lines[i * 4 + 2];
+    // const timestamp = lines[i * 4 + 3];
+
+    const parsedValue = stringToValue(dataType, value);
+
+    data.push({ machine, data: parsedValue });
+  }
+
+  return data;
+}
+
+export { post, getMachines, getAllStatisticsByMachine, getAllStatisticsByKey };

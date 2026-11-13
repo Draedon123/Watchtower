@@ -68,4 +68,4 @@ function stringToValue(type: string, string: string): DataType {
   }
 }
 
-export { F32Value, Vec2U64Value, UnknownValue, stringToValue };
+export { DataType, F32Value, Vec2U64Value, UnknownValue, stringToValue };
