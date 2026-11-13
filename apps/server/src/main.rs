@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     return Ok(());
   };
 
-  let data = Arc::new(RwLock::new(Data::new(10)));
+  let data = Arc::new(RwLock::new(Data::new()));
   let mut server = Server::new(&config)?;
   server.routes = Arc::new(get_routes(&config, &data));
 
@@ -112,7 +112,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let mut serialised_data = String::new();
 
         for key in keys {
-          let recent_data = data.get_machine_data_recent(machine, key);
+          let recent_data = data.get_machine_data(machine, key);
 
           match recent_data {
             Ok(data_entry) => {
@@ -203,9 +203,9 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
       let content: Vec<_> = request.http_request.get_content().lines().collect();
       let machine = request.slugs.get("machine").unwrap();
-      
+
       response.status_code = StatusCode::Status200;
-      
+
       let mut data = data.write().await;
       for i in 0..content.len() / 4 {
         let key = content[i * 4];
@@ -226,6 +226,50 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
       response
     })
   });
+
+  let data_reader = data.clone();
+  routes.route(
+    "/stats/[key]",
+    HTTPMethod::Post(),
+    move |request, mut response| {
+      let data = data_reader.clone();
+
+      Box::pin(async move {
+        let data = data.read().await;
+
+        let key = request.slugs.get("key").unwrap();
+        // TODO: optimise
+        let machines: Vec<_> = if request.http_request.get_content().is_empty() {
+          data
+            .list_machines()
+            .iter()
+            .map(|machine| &machine[..])
+            .collect()
+        } else {
+          request.http_request.get_content().lines().collect()
+        };
+
+        let mut serialised_data = String::new();
+
+        for machine in machines {
+          let recent_data = data.get_machine_data(machine, key);
+
+          match recent_data {
+            Ok(data_entry) => {
+              serialised_data.push_str(&format!("{machine}\n{data_entry}\n"));
+            }
+            Err(error) => {
+              eprintln!("Failed to fetch \"{key}\" for \"{machine}\": {error}");
+            }
+          };
+        }
+
+        response.status_code = StatusCode::Status200;
+        response.set_content(&serialised_data);
+        response
+      })
+    },
+  );
 
   routes
 }

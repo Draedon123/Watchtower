@@ -1,7 +1,8 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[derive(Clone)]
 pub enum DataType {
   F32Value(f32),
   Vec2U64Value((u64, u64)),
@@ -54,6 +55,7 @@ impl From<(&str, &str)> for DataType {
   }
 }
 
+#[derive(Clone)]
 pub struct DataEntry {
   pub data: DataType,
   pub timestamp: u64,
@@ -93,12 +95,6 @@ impl Display for DataEntry {
   }
 }
 
-pub struct Data {
-  machine_data: HashMap<String, HashMap<String, VecDeque<DataEntry>>>,
-  machine_by_connection: HashMap<String, String>,
-  max_values_per_key: usize,
-}
-
 type DataResult<T> = std::result::Result<T, DataResultError>;
 
 #[derive(Debug)]
@@ -122,12 +118,18 @@ impl std::fmt::Display for DataResultError {
   }
 }
 
+pub struct Data {
+  data_by_machine: HashMap<String, HashMap<String, DataEntry>>,
+  data_by_key: HashMap<String, HashMap<String, DataEntry>>,
+  machine_by_connection: HashMap<String, String>,
+}
+
 impl Data {
-  pub fn new(max_values_per_key: usize) -> Data {
+  pub fn new() -> Data {
     Data {
-      machine_data: HashMap::new(),
+      data_by_machine: HashMap::new(),
+      data_by_key: HashMap::new(),
       machine_by_connection: HashMap::new(),
-      max_values_per_key,
     }
   }
 
@@ -137,47 +139,48 @@ impl Data {
     data_key: &str,
     data_value: DataType,
   ) -> Result<(), String> {
-    let values = self
-      .machine_data
+    let entry = self
+      .data_by_machine
       .entry(machine.to_string())
       .or_insert(HashMap::new())
-      .entry(data_key.to_string())
-      .or_insert(VecDeque::with_capacity(self.max_values_per_key));
-
-    if values.len() >= self.max_values_per_key {
-      values.pop_back();
-    }
+      .entry(data_key.to_string());
 
     let data_entry = DataEntry {
       data: data_value,
       timestamp: DataEntry::get_current_time(),
     };
 
-    values.push_front(data_entry);
+    entry.insert_entry(data_entry.clone());
+
+    self
+      .data_by_key
+      .entry(data_key.to_string())
+      .or_insert(HashMap::new())
+      .entry(machine.to_string())
+      .insert_entry(data_entry);
+
     Ok(())
   }
 
-  pub fn get_machine_data_recent(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {
+  pub fn get_machine_data(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {
     Ok(
       self
-        .machine_data
+        .data_by_machine
         .get(machine)
         .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
         .get(data_key)
-        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?
-        .front()
-        .ok_or(DataResultError::NoValuesError(data_key.to_string()))?,
+        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?,
     )
   }
 
   pub fn list_machines(&self) -> Vec<&String> {
-    self.machine_data.keys().collect()
+    self.data_by_machine.keys().collect()
   }
 
   pub fn list_machine_keys(&self, machine: &str) -> DataResult<Vec<&str>> {
     Ok(
       self
-        .machine_data
+        .data_by_machine
         .get(machine)
         .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
         .keys()
@@ -191,8 +194,8 @@ impl Data {
 
     self.machine_by_connection.insert(ip, machine.clone());
 
-    if !self.machine_data.contains_key(&machine) {
-      self.machine_data.insert(machine, HashMap::new());
+    if !self.data_by_machine.contains_key(&machine) {
+      self.data_by_machine.insert(machine, HashMap::new());
       true
     } else {
       false
@@ -204,7 +207,12 @@ impl Data {
 
     match machine {
       Some(machine) => {
-        self.machine_data.remove(&machine);
+        self.data_by_machine.remove(&machine);
+
+        for machines in self.data_by_key.values_mut() {
+          machines.remove(&machine);
+        }
+
         Some(machine)
       }
       None => None,
