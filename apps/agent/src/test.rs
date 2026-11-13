@@ -161,7 +161,15 @@ impl Instance {
     )
     .await
     {
-      eprintln!("{error}");
+      eprintln!(
+        "{} failed to send data to watchtower: {error}",
+        self.hostname
+      );
+
+      match self.client.try_reconnect_once().await {
+        Ok(_) => println!("{} reconnected", self.hostname),
+        Err(error) => eprintln!("{} failed to reconnect: {error}", self.hostname),
+      };
     };
   }
 }
@@ -170,7 +178,7 @@ pub async fn spawn_instances(num_instances: usize) {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
-  let instances: &mut Vec<Instance> = Box::leak(Box::new(Vec::with_capacity(num_instances)));
+  let mut instances: Vec<Instance> = Vec::with_capacity(num_instances);
 
   for id in 1..=num_instances {
     let instance = Instance::new(id, config.clone());
