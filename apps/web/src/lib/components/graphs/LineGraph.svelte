@@ -15,6 +15,8 @@
     markerRadius?: number;
     lineWidth?: number;
     title?: Text;
+    xLabel?: Text;
+    yLabel?: Text;
   };
 
   let {
@@ -28,6 +30,8 @@
     markerRadius = 5,
     lineWidth = 2,
     title,
+    xLabel,
+    yLabel,
   }: Props = $props();
 
   let x = $derived(data.x);
@@ -51,15 +55,27 @@
   let svgWidth_px: number = $state(1);
   let svgHeight_px: number = $state(1);
 
-  let titleHeight_px: number = $derived(title?.size_px ?? 16);
+  let titleHeight_px: number = $derived(title?.size_px ?? 20);
   let titlePadding_px: number = $derived(titleHeight_px * 1);
   let titleHeightEffective_px: number = $derived(
-    titleHeight_px + titlePadding_px
+    title === undefined ? 0 : titleHeight_px + titlePadding_px
   );
 
-  let plotWidth_px: number = $derived(svgWidth_px);
+  let xLabelHeight_px: number = $derived(xLabel?.size_px ?? 16);
+  let xLabelPadding_px: number = $derived(xLabelHeight_px * 1);
+  let xLabelHeightEffective_px: number = $derived(
+    xLabel === undefined ? 0 : xLabelHeight_px + xLabelPadding_px
+  );
+
+  let yLabelHeight_px: number = $derived(yLabel?.size_px ?? 16);
+  let yLabelPadding_px: number = $derived(yLabelHeight_px * 1);
+  let yLabelHeightEffective_px: number = $derived(
+    yLabel === undefined ? 0 : yLabelHeight_px + yLabelPadding_px
+  );
+
+  let plotWidth_px: number = $derived(svgWidth_px - yLabelHeightEffective_px);
   let plotHeight_px: number = $derived(
-    svgHeight_px - (title !== undefined ? titleHeightEffective_px : 0)
+    svgHeight_px - titleHeightEffective_px - xLabelHeightEffective_px
   );
 
   let yAxisGrid = $derived.by(() => {
@@ -75,12 +91,17 @@
   });
 
   function xPlotToPx(x: number) {
-    return plotWidth_px * ((x - plotLeft) / (plotRight - plotLeft));
+    return (
+      yLabelHeightEffective_px +
+      plotWidth_px * ((x - plotLeft) / (plotRight - plotLeft))
+    );
   }
 
   function yPlotToPx(y: number) {
     return (
-      svgHeight_px - plotHeight_px * ((y - plotBottom) / (plotTop - plotBottom))
+      svgHeight_px -
+      xLabelHeightEffective_px -
+      plotHeight_px * ((y - plotBottom) / (plotTop - plotBottom))
     );
   }
 
@@ -110,8 +131,28 @@
       class="title"
       style="font-size: {titleHeight_px}; stroke: {title.colour ??
         '#fff'}; fill: {title.colour ?? '#fff'}"
-      x={plotWidth_px / 2}
+      x={svgWidth_px / 2}
       y={titleHeightEffective_px / 2}>{title.message}</text
+    >
+  {/if}
+
+  {#if xLabel !== undefined}
+    <text
+      class="x-label"
+      style="font-size: {xLabelHeight_px}; stroke: {xLabel.colour ??
+        '#fff'}; fill: {xLabel.colour ?? '#fff'}"
+      x={svgWidth_px / 2}
+      y={svgHeight_px - xLabelHeightEffective_px / 2}>{xLabel.message}</text
+    >
+  {/if}
+
+  {#if yLabel !== undefined}
+    <text
+      class="y-label"
+      style="font-size: {yLabelHeight_px}; stroke: {yLabel.colour ??
+        '#fff'}; fill: {yLabel.colour ?? '#fff'}"
+      x={yLabelHeightEffective_px / 2}
+      y={svgHeight_px / 2}>{yLabel.message}</text
     >
   {/if}
 
@@ -161,8 +202,16 @@
     stroke: #8888;
   }
 
-  .title {
+  .title,
+  .x-label,
+  .y-label {
     text-anchor: middle;
     alignment-baseline: middle;
+  }
+
+  .y-label {
+    transform-origin: center;
+    transform-box: fill-box;
+    transform: rotate(-90deg);
   }
 </style>

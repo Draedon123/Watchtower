@@ -110,6 +110,8 @@
       bottom={0}
       top={1}
       title={{ message: "CPU Usage" }}
+      xLabel={{ message: "Time (s)" }}
+      yLabel={{ message: "CPU Usage %" }}
     ></LineGraph>
   </div>
 </div>
