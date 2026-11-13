@@ -1,35 +1,72 @@
 import { dev } from "$app/env";
 import type { MachineData } from "./components/MachineCard.svelte";
 import { DataType, F32Value, stringToValue, Vec2U64Value } from "./DataTypes";
+import { currentTime_ms } from "./dateTime";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
   : "http://watchtowerapi.draedon.xyz";
 
+type ConnectionStatus = {
+  disconnectedSince: number | null;
+  error: Error | null;
+  connectedMachines: string[] | null | Error;
+};
+
+const connectionStatus: ConnectionStatus = $state({
+  disconnectedSince: null,
+  error: null,
+  connectedMachines: null,
+});
+
 async function request(method: string, path: string): Promise<string> {
-  const response = await fetch(`${WATCHTOWER_ADDRESS}/${path}`, {
-    method,
-  });
+  try {
+    const response = await fetch(`${WATCHTOWER_ADDRESS}/${path}`, {
+      method,
+    });
 
-  if (!response.ok) {
-    throw new Error(`${response.status}: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${response.statusText}`);
+    }
+
+    connectionStatus.disconnectedSince = null;
+
+    return response.text();
+  } catch (error) {
+    if (connectionStatus.disconnectedSince === null) {
+      connectionStatus.disconnectedSince = currentTime_ms();
+    }
+
+    connectionStatus.error = error instanceof Error ? error : null;
+
+    throw error;
   }
-
-  return response.text();
 }
 
 function post(path: string): Promise<string> {
   return request("POST", path);
 }
 
-async function getMachines(): Promise<string[]> {
-  const response = await post("machine/list");
+async function updateMachines(): Promise<void> {
+  const response = await post("machine/list").catch((error: Error) => {
+    if (connectionStatus.disconnectedSince === null) {
+      connectionStatus.disconnectedSince = currentTime_ms();
+    }
 
-  return response === ""
-    ? []
-    : response
-        .split("\n")
-        .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    return error;
+  });
+
+  if (response instanceof Error) {
+    connectionStatus.connectedMachines = response;
+    return;
+  }
+
+  connectionStatus.connectedMachines =
+    response === ""
+      ? []
+      : response
+          .split("\n")
+          .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 }
 
 async function getAllStatisticsByMachine(
@@ -121,4 +158,10 @@ async function getAllStatisticsByKey(
   return data;
 }
 
-export { post, getMachines, getAllStatisticsByMachine, getAllStatisticsByKey };
+export {
+  post,
+  updateMachines,
+  getAllStatisticsByMachine,
+  getAllStatisticsByKey,
+  connectionStatus,
+};

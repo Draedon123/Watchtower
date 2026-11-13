@@ -1,10 +1,14 @@
 <script lang="ts">
+  import ConnectionFailure from "$lib/components/ConnectionFailure.svelte";
   import { F32Value } from "$lib/DataTypes";
-  import { getAllStatisticsByKey, getMachines } from "$lib/request";
+  import {
+    connectionStatus,
+    getAllStatisticsByKey,
+    updateMachines,
+  } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
 
   let averageCpuUsage: number = $state(0);
-  let machines: string[] = $state([]);
   let loop: NodeJS.Timeout | null = null;
 
   function setIntervalImmediately(
@@ -18,7 +22,7 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      machines = await getMachines();
+      await updateMachines();
 
       const cpuUsages = await getAllStatisticsByKey("cpu_usage");
 
@@ -46,14 +50,20 @@
 
 <h1>Watchtower</h1>
 
-<p>
-  Average cpu usage across {machines.length} machines: {(
-    averageCpuUsage * 100
-  ).toFixed(2)}%
-</p>
+{#if connectionStatus.connectedMachines instanceof Error}
+  <ConnectionFailure />
+{:else if connectionStatus.connectedMachines === null}
+  <p class="center">Loading data...</p>
+{:else}
+  <p>
+    Average cpu usage across {connectionStatus.connectedMachines.length} machines:
+    {(averageCpuUsage * 100).toFixed(2)}%
+  </p>
+{/if}
 
 <style lang="scss">
   h1 {
     text-align: center;
+    margin-bottom: 0;
   }
 </style>

@@ -1,23 +1,17 @@
 <script lang="ts">
+  import ConnectionFailure from "$lib/components/ConnectionFailure.svelte";
   import MachineCard, {
     type MachineData,
   } from "$lib/components/MachineCard.svelte";
   import {
-    currentTime_ms,
-    msToString,
-    relativeTimeToString,
-  } from "$lib/dateTime";
-  import { getAllStatisticsByMachine, getMachines } from "$lib/request";
+    connectionStatus,
+    getAllStatisticsByMachine,
+    updateMachines,
+  } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
-
-  let machines: string[] | null | Error = $state(
-    null as string[] | null | Error
-  );
 
   let machineData: (MachineData | null)[] = $state([]);
 
-  let disconnectedSince: number | null = $state(null);
-  let currentTime: number = $state(currentTime_ms());
   let loop: NodeJS.Timeout | null = null;
 
   function setIntervalImmediately(
@@ -31,29 +25,13 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      const newMachines = await getMachines()
-        .then((machines) => {
-          disconnectedSince = null;
+      await updateMachines();
 
-          return machines;
-        })
-        .catch((error: Error) => {
-          if (disconnectedSince === null) {
-            disconnectedSince = currentTime_ms();
-          }
-
-          currentTime = currentTime_ms();
-
-          return error;
-        });
-
-      if (newMachines instanceof Error) {
-        machines = newMachines;
-        return;
+      if (Array.isArray(connectionStatus.connectedMachines)) {
+        machineData = await getAllStatisticsByMachine(
+          connectionStatus.connectedMachines
+        );
       }
-
-      machines = newMachines;
-      machineData = await getAllStatisticsByMachine(machines);
     }, 1000);
   });
 
@@ -67,29 +45,20 @@
 
 <h1>Watchtower</h1>
 
-{#if machines instanceof Error}
-  {@const downtime_ms = currentTime - (disconnectedSince as number)}
-  <div class="center">
-    <h2>Server Offline!</h2>
-
-    <p>Error: {machines.message}</p>
-
-    <p>
-      Offline for at least {relativeTimeToString(downtime_ms / 1000)} (since {msToString(
-        currentTime - downtime_ms,
-        "{hh24}:{min}:{ss}, {month} {date}, {yyyy}"
-      )})
-    </p>
-  </div>
-{:else if machines === null}
+{#if connectionStatus.connectedMachines instanceof Error}
+  <ConnectionFailure />
+{:else if connectionStatus.connectedMachines === null}
   <p class="center">Loading data...</p>
 {:else}
   <small class="subtitle">
-    Monitoring {machines.length} machine{machines.length !== 1 ? "s" : ""}
+    Monitoring {connectionStatus.connectedMachines.length} machine{connectionStatus
+      .connectedMachines.length !== 1
+      ? "s"
+      : ""}
   </small>
 
   <div class="machines">
-    {#each machines as machine, i (machine)}
+    {#each connectionStatus.connectedMachines as machine, i (machine)}
       {@const data =
         machineData[i] === null ? { name: machine } : machineData[i]}
       <MachineCard {...data} />
