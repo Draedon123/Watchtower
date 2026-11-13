@@ -66,7 +66,10 @@ impl<'a> CpuUsage<'a> {
     let mut connection = client
       .request(
         HTTPMethod::Post(),
-        &format!("{}/set/{hostname}/cpu_usage", config.watchtower_address),
+        &format!(
+          "{}/machine/{hostname}/set/cpu_usage",
+          config.watchtower_address
+        ),
         None,
       )
       .await?;

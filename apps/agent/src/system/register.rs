@@ -29,7 +29,7 @@ pub async fn try_register(
   let mut connection = client
     .request(
       HTTPMethod::Post(),
-      &format!("{}/set/{hostname}", config.watchtower_address),
+      &format!("{}/machine/register/{hostname}", config.watchtower_address),
       None,
     )
     .await?;

@@ -100,7 +100,7 @@ impl<'a> Memory<'a> {
       .request(
         HTTPMethod::Post(),
         &format!(
-          "{}/set/{hostname}/{}",
+          "{}/machine/{hostname}/set/{}",
           config.watchtower_address,
           memory_type.watchtower_path()
         ),

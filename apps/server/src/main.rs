@@ -93,7 +93,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_reader = data.clone();
   routes.route(
-    "/get/[machine]/[key]",
+    "/machine/[machine]/get/[key]",
     HTTPMethod::Post(),
     move |request, mut response| {
       let data = data_reader.clone();
@@ -122,7 +122,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_reader = data.clone();
   routes.route(
-    "/all/[machine]",
+    "/machine/[machine]/all_data",
     HTTPMethod::Post(),
     move |request, mut response| {
       let data = data_reader.clone();
@@ -163,7 +163,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_reader = data.clone();
   routes.route(
-    "/get/machines",
+    "/machine/list",
     HTTPMethod::Post(),
     move |_, mut response| {
       let data = data_reader.clone();
@@ -191,7 +191,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let data_writer = data.clone();
   let server_password = password.clone();
   routes.route(
-    "/set/[machine]",
+    "/machine/register/[machine]",
     HTTPMethod::Post(),
     move |request, mut response| {
       let data = data_writer.clone();
@@ -223,51 +223,53 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let data_writer = data.clone();
   let server_password = password.clone();
   routes.route(
-    "/set/[machine]/[key]",
+    "/machine/[machine]/set/[key]",
     HTTPMethod::Post(),
     move |request, mut response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
-      if !respond_if_unauthenticated(request, &mut response, &server_password) {
-        return response;
-      };
+        if !respond_if_unauthenticated(request, &mut response, &server_password) {
+          return response;
+        };
 
-      let content: Vec<_> = request.http_request.get_content().lines().collect();
-      let machine = request.slugs.get("machine").unwrap();
-      let key = request.slugs.get("key").unwrap();
+        let content: Vec<_> = request.http_request.get_content().lines().collect();
+        let machine = request.slugs.get("machine").unwrap();
+        let key = request.slugs.get("key").unwrap();
 
-      let value_type = if content.is_empty() { "" } else { content[0] };
-      let value = if content.is_empty() { "" } else { content[1] };
-      let new_data = DataType::from((value_type, value));
+        let value_type = if content.is_empty() { "" } else { content[0] };
+        let value = if content.is_empty() { "" } else { content[1] };
+        let new_data = DataType::from((value_type, value));
 
-      match new_data {
-        DataType::F32Value(value) =>{
-          response.status_code = StatusCode::Status200;
+        match new_data {
+          DataType::F32Value(value) =>{
+            response.status_code = StatusCode::Status200;
 
-          if let Err(error) = data.write().await.set_data(machine, key, DataType::F32Value(value)) {
-            eprintln!(
-              "Failed to set f32 value of \"{key}\"=\"{value}\" for machine \"{machine}\": {error}"
-            );
-          };
-        }
-        DataType::Vec2U64Value(value) =>{
-          response.status_code = StatusCode::Status200;
+            if let Err(error) = data.write().await.set_data(machine, key, DataType::F32Value(value)) {
+              eprintln!(
+                "Failed to set f32 value of \"{key}\"=\"{value}\" for machine \"{machine}\": {error}"
+              );
+            };
+          }
+          DataType::Vec2U64Value(value) =>{
+            response.status_code = StatusCode::Status200;
 
-          if let Err(error) = data.write().await.set_data(machine, key, DataType::Vec2U64Value(value)) {
-            eprintln!(
-              "Failed to set vec2u64 value of \"{key}\"=\"({}, {})\" for machine \"{machine}\": {error}", value.0, value.1
-            );
-          };
-        }
-        DataType::Unknown(value) => {
-          response.status_code = StatusCode::Status400;
-          response.set_content(&format!("Invalid value \"{value}\""));
-        }
-      };
+            if let Err(error) = data.write().await.set_data(machine, key, DataType::Vec2U64Value(value)) {
+              eprintln!(
+                "Failed to set vec2u64 value of \"{key}\"=\"({}, {})\" for machine \"{machine}\": {error}", value.0, value.1
+              );
+            };
+          }
+          DataType::Unknown(value) => {
+            response.status_code = StatusCode::Status400;
+            response.set_content(&format!("Invalid value \"{value}\""));
+          }
+        };
 
-response    })},
+        response    
+      })
+    },
   );
 
   routes

@@ -1,5 +1,5 @@
 import { dev } from "$app/env";
-import type { MachineData } from "./components/Machine.svelte";
+import type { MachineData } from "./components/MachineCard.svelte";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
@@ -21,9 +21,8 @@ function post(path: string): Promise<string> {
   return request("POST", path);
 }
 
-const GET_MACHINES_PATH = "get/machines";
 async function getMachines(): Promise<string[]> {
-  const response = await post(GET_MACHINES_PATH);
+  const response = await post("machine/list");
 
   return response === ""
     ? []
@@ -40,7 +39,7 @@ async function getAll(
   }
 
   const promises = machines.map((machine) =>
-    post(`all/${machine}`).catch(() => null)
+    post(`machine/${machine}/all_data`).catch(() => null)
   );
 
   const data = await Promise.all(promises);
