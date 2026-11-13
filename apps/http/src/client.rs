@@ -1,4 +1,6 @@
-use tokio::net::TcpStream;
+use std::time::Duration;
+
+use tokio::{net::TcpStream, time::sleep};
 
 use crate::{header::Headers, method::HTTPMethod, request::Request, url::Url};
 
@@ -45,11 +47,13 @@ impl Client {
       .unwrap_or_else(|_| url.guess_port().unwrap_or(80));
 
     if self.host != host || self.port != port {
-      self.host = host.clone();
-      self.port = port;
+      let stream = match TcpStream::connect((&host[..], port)).await {
+        Ok(stream) => {
+          self.host = host;
+          self.port = port;
 
-      let stream = match TcpStream::connect((host, port)).await {
-        Ok(stream) => stream,
+          stream
+        }
         Err(error) => return Err(error.to_string()),
       };
 
@@ -71,5 +75,25 @@ impl Client {
     } else {
       Err(String::from("No connection made"))
     }
+  }
+
+  pub async fn reconnect_loop(&mut self, timeout_ms: u64) {
+    loop {
+      if let Err(error) = self.try_reconnect_once().await {
+        eprintln!(
+          "Failed to reconnect to {}:{}. Error: {error}",
+          self.host, self.port
+        );
+      };
+
+      sleep(Duration::from_millis(timeout_ms)).await;
+    }
+  }
+
+  pub async fn try_reconnect_once(&mut self) -> Result<(), std::io::Error> {
+    let stream = TcpStream::connect((&self.host[..], self.port)).await?;
+    self.stream = Some(stream);
+
+    Ok(())
   }
 }

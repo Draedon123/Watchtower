@@ -56,6 +56,12 @@ async fn main() {
           send_to_watchtower(&mut statistics, &mut client, &config, &hostname).await
         {
           eprintln!("{error}");
+          println!("Attempting reconnection");
+
+          match client.try_reconnect_once().await {
+            Ok(_) => println!("Reconnected"),
+            Err(error) => eprintln!("Failed to reconnect: {error}"),
+          };
         };
       }
     }
