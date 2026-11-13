@@ -109,6 +109,7 @@
       right={trackTime_s}
       bottom={0}
       top={1}
+      title={{ message: "CPU Usage" }}
     ></LineGraph>
   </div>
 </div>

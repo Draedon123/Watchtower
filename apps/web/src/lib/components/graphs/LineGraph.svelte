@@ -1,4 +1,9 @@
 <script lang="ts">
+  type Text = Partial<{
+    size_px: number;
+    colour: string;
+  }> & { message: string };
+
   type Props = {
     data: { x: number[]; y: number[] };
     left?: number;
@@ -9,6 +14,7 @@
     lineColour?: string;
     markerRadius?: number;
     lineWidth?: number;
+    title?: Text;
   };
 
   let {
@@ -21,6 +27,7 @@
     lineColour = "#fff",
     markerRadius = 5,
     lineWidth = 2,
+    title,
   }: Props = $props();
 
   let x = $derived(data.x);
@@ -36,32 +43,45 @@
 
   const PADDING = 0.1;
 
-  let left = $derived(_left ?? minX - PADDING * rangeX);
-  let right = $derived(_right ?? maxX + PADDING * rangeX);
-  let bottom = $derived(_bottom ?? minY - PADDING * rangeY);
-  let top = $derived(_top ?? maxY + PADDING * rangeY);
+  let plotLeft = $derived(_left ?? minX - PADDING * rangeX);
+  let plotRight = $derived(_right ?? maxX + PADDING * rangeX);
+  let plotBottom = $derived(_bottom ?? minY - PADDING * rangeY);
+  let plotTop = $derived(_top ?? maxY + PADDING * rangeY);
 
-  let width: number = $state(1);
-  let height: number = $state(1);
+  let svgWidth_px: number = $state(1);
+  let svgHeight_px: number = $state(1);
+
+  let titleHeight_px: number = $derived(title?.size_px ?? 16);
+  let titlePadding_px: number = $derived(titleHeight_px * 1);
+  let titleHeightEffective_px: number = $derived(
+    titleHeight_px + titlePadding_px
+  );
+
+  let plotWidth_px: number = $derived(svgWidth_px);
+  let plotHeight_px: number = $derived(
+    svgHeight_px - (title !== undefined ? titleHeightEffective_px : 0)
+  );
 
   let yAxisGrid = $derived.by(() => {
-    const NUM_LINES = 4;
-    const gridSpacing = (top - bottom) / (NUM_LINES + 1);
+    const NUM_LINES = 5;
+    const gridSpacing = (plotTop - plotBottom) / NUM_LINES;
     const grid: number[] = [];
 
-    for (let i = 1; i <= NUM_LINES; i++) {
-      grid.push(bottom + i * gridSpacing);
+    for (let i = 0; i <= NUM_LINES; i++) {
+      grid.push(plotBottom + i * gridSpacing);
     }
 
     return grid;
   });
 
-  function xPos(x: number) {
-    return width * ((x - left) / (right - left));
+  function xPlotToPx(x: number) {
+    return plotWidth_px * ((x - plotLeft) / (plotRight - plotLeft));
   }
 
-  function yPos(y: number) {
-    return height - height * ((y - bottom) / (top - bottom));
+  function yPlotToPx(y: number) {
+    return (
+      svgHeight_px - plotHeight_px * ((y - plotBottom) / (plotTop - plotBottom))
+    );
   }
 
   function min(array: number[]): number {
@@ -79,28 +99,43 @@
   }
 </script>
 
-<svg {width} {height} bind:clientWidth={width} bind:clientHeight={height}>
+<svg
+  width={svgWidth_px}
+  height={svgHeight_px}
+  bind:clientWidth={svgWidth_px}
+  bind:clientHeight={svgHeight_px}
+>
+  {#if title !== undefined}
+    <text
+      class="title"
+      style="font-size: {titleHeight_px}; stroke: {title.colour ??
+        '#fff'}; fill: {title.colour ?? '#fff'}"
+      x={plotWidth_px / 2}
+      y={titleHeightEffective_px / 2}>{title.message}</text
+    >
+  {/if}
+
   {#each yAxisGrid as y (y)}
     <line
       class="grid"
-      x1={xPos(left)}
-      y1={yPos(y)}
-      x2={xPos(right)}
-      y2={yPos(y)}
+      x1={xPlotToPx(plotLeft)}
+      y1={yPlotToPx(y)}
+      x2={xPlotToPx(plotRight)}
+      y2={yPlotToPx(y)}
     />
   {/each}
 
   {#each { length: x.length }, i}
-    {@const xpos = xPos(x[i])}
-    {@const ypos = yPos(y[i])}
+    {@const xpos = xPlotToPx(x[i])}
+    {@const ypos = yPlotToPx(y[i])}
 
     {#if i < x.length - 1}
       <line
         class="connector"
         x1={xpos}
         y1={ypos}
-        x2={xPos(x[i + 1])}
-        y2={yPos(y[i + 1])}
+        x2={xPlotToPx(x[i + 1])}
+        y2={yPlotToPx(y[i + 1])}
         stroke={lineColour}
         stroke-width={lineWidth}
       />
@@ -124,5 +159,10 @@
 
   .grid {
     stroke: #8888;
+  }
+
+  .title {
+    text-anchor: middle;
+    alignment-baseline: middle;
   }
 </style>
