@@ -1,5 +1,6 @@
 import { dev } from "$app/env";
 import type { MachineData } from "./components/MachineCard.svelte";
+import { F32Value, stringToValue, Vec2U64Value } from "./DataTypes";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
@@ -31,7 +32,7 @@ async function getMachines(): Promise<string[]> {
         .sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
 }
 
-async function getAll(
+async function getAllStatisticsByMachine(
   machines: string[] | null
 ): Promise<(MachineData | null)[]> {
   if (machines === null) {
@@ -59,26 +60,31 @@ async function getAll(
       const value = lines[i * 4 + 2];
       // const timestamp = lines[i + 3];
 
-      const parsedValue = parseValue(type, value);
+      const parsedValue = stringToValue(type, value);
 
       switch (key) {
         case "cpu_usage": {
-          entry.cpuUsage = parsedValue;
+          if (!(parsedValue instanceof F32Value)) {
+            throw new Error(
+              `Expected f32 value. Instead received ${parsedValue.stringName}`
+            );
+          }
+
+          entry.cpuUsage = parsedValue.value;
           break;
         }
 
-        case "memory_physical": {
-          entry.physicalMemory = {
-            available_kib: parsedValue[0],
-            total_kib: parsedValue[1],
-          };
-          break;
-        }
-
+        case "memory_physical":
         case "memory_swap": {
-          entry.swapMemory = {
-            available_kib: parsedValue[0],
-            total_kib: parsedValue[1],
+          if (!(parsedValue instanceof Vec2U64Value)) {
+            throw new Error(
+              `Expected vec2u64 value. Instead received ${parsedValue.stringName}`
+            );
+          }
+
+          entry[key === "memory_swap" ? "swapMemory" : "physicalMemory"] = {
+            available_kib: parsedValue.value[0],
+            total_kib: parsedValue.value[1],
           };
           break;
         }
@@ -89,21 +95,4 @@ async function getAll(
   });
 }
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-function parseValue(type: string, value: string): any {
-  switch (type) {
-    case "f32": {
-      return parseFloat(value);
-    }
-
-    case "vec2u64": {
-      return value.split(",").map((value) => parseInt(value));
-    }
-
-    default: {
-      return null;
-    }
-  }
-}
-
-export { post, getMachines, getAll };
+export { post, getMachines, getAllStatisticsByMachine };

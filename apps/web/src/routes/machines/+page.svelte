@@ -7,7 +7,7 @@
     msToString,
     relativeTimeToString,
   } from "$lib/dateTime";
-  import { getAll, getMachines } from "$lib/request";
+  import { getAllStatisticsByMachine, getMachines } from "$lib/request";
   import { onDestroy, onMount } from "svelte";
 
   let machines: string[] | null | Error = $state(
@@ -53,7 +53,7 @@
       }
 
       machines = newMachines;
-      machineData = await getAll(machines);
+      machineData = await getAllStatisticsByMachine(machines);
     }, 1000);
   });
 
