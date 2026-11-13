@@ -1,9 +1,8 @@
 use std::{fmt::Display, fs::read_to_string};
 
-use http::{client::Client, method::HTTPMethod};
 use watchtower_server::data::DataEntry;
 
-use crate::{config::Config, system::hostname::HostnameFetcher};
+use crate::watchtower_bridge::Bridge;
 
 pub enum MemoryType {
   Physical,
@@ -11,21 +10,21 @@ pub enum MemoryType {
 }
 
 impl MemoryType {
-  fn total_memory_key(&self) -> &str {
+  pub fn total_memory_key(&self) -> &str {
     match self {
       MemoryType::Physical => "MemTotal",
       MemoryType::Swap => "SwapTotal",
     }
   }
 
-  fn available_memory_key(&self) -> &str {
+  pub fn available_memory_key(&self) -> &str {
     match self {
       MemoryType::Physical => "MemAvailable",
       MemoryType::Swap => "SwapFree",
     }
   }
 
-  fn watchtower_path(&self) -> &str {
+  pub fn watchtower_path(&self) -> &str {
     match self {
       MemoryType::Physical => "memory_physical",
       MemoryType::Swap => "memory_swap",
@@ -44,95 +43,30 @@ impl Display for MemoryData {
   }
 }
 
-pub struct Memory<'a> {
+pub struct Memory {
   pub memory_type: MemoryType,
-  hostname_fetcher: &'a HostnameFetcher,
 }
 
-impl<'a> Memory<'a> {
-  pub fn new(memory_type: MemoryType, hostname_fetcher: &'a HostnameFetcher) -> Memory<'a> {
-    Memory {
-      memory_type,
-      hostname_fetcher,
-    }
-  }
-
-  pub async fn send_to_watchtower(
-    &mut self,
-    config: &Config,
-    client: &mut Client,
-  ) -> Result<(), String> {
-    let data = match self.get_data()? {
-      Some(data) => Some(data),
-      None => None,
-    };
-
-    Memory::send_data_to_watchtower(
-      &self.hostname_fetcher,
-      &self.memory_type,
-      data,
-      config,
-      client,
-    )
-    .await
-  }
-
-  pub async fn send_data_to_watchtower(
-    hostname_fetcher: &'a HostnameFetcher,
-    memory_type: &MemoryType,
-    data: Option<MemoryData>,
-    config: &Config,
-    client: &mut Client,
-  ) -> Result<(), String> {
-    let hostname = match hostname_fetcher.get_hostname() {
-      Ok(hostname) => hostname,
-      Err(error) => {
-        return Err(format!("Failed to get device hostname: {error}"));
-      }
-    };
-
-    let data = match data {
-      Some(data) => (DataEntry::from((data.available_kib, data.total_kib))).to_string(),
-      None => String::new(),
-    };
-
-    let mut connection = client
-      .request(
-        HTTPMethod::Post(),
-        &format!(
-          "{}/machine/{hostname}/set/{}",
-          config.watchtower_address,
-          memory_type.watchtower_path()
-        ),
-        None,
-      )
-      .await?;
-
-    connection.set_content(&data);
-    connection.send().await?;
-
-    Ok(())
-  }
-
-  pub fn get_data(&self) -> Result<Option<MemoryData>, String> {
+impl MemoryType {
+  pub fn get_memory_data(&self) -> Result<Option<MemoryData>, String> {
     let meminfo = if let Ok(meminfo) = read_to_string("/proc/meminfo") {
       meminfo
     } else {
       return Err(String::from("Could not read from /proc/meminfo"));
     };
 
-    let total_memory_key = self.memory_type.total_memory_key();
-    let available_memory_key = self.memory_type.available_memory_key();
+    let total_memory_key = self.total_memory_key();
+    let available_memory_key = self.available_memory_key();
 
     let mut meminfo = meminfo.lines();
 
     let total_kib = match meminfo.find(|line| line.starts_with(total_memory_key)) {
-      Some(line) => Memory::parse_meminfo_line(line)?,
+      Some(line) => parse_meminfo_line(line)?,
       None => return Ok(None),
     };
 
     let available_kib = match meminfo.find(|line| line.starts_with(available_memory_key)) {
-      Some(line) => Memory::parse_meminfo_line(line)?,
+      Some(line) => parse_meminfo_line(line)?,
       None => return Ok(None),
     };
 
@@ -141,21 +75,33 @@ impl<'a> Memory<'a> {
       available_kib,
     }))
   }
+}
 
-  fn parse_meminfo_line(line: &str) -> Result<u64, String> {
-    // [key, memory_kibibytes, "kB"]
-    let parts: Vec<_> = line.split_whitespace().collect();
+impl Bridge for MemoryType {
+  fn get_data(&mut self) -> Result<(String, DataEntry), String> {
+    Ok((
+      String::from(self.watchtower_path()),
+      match self.get_memory_data()? {
+        Some(data) => DataEntry::from((data.available_kib, data.total_kib)),
+        None => DataEntry::new(watchtower_server::data::DataType::None),
+      },
+    ))
+  }
+}
 
-    if parts.len() != 3 {
-      return Err(format!("Invalid /proc/meminfo line: {line}"));
-    };
+fn parse_meminfo_line(line: &str) -> Result<u64, String> {
+  // [key, memory_kibibytes, "kB"]
+  let parts: Vec<_> = line.split_whitespace().collect();
 
-    let kibibytes = parts[1];
-    match kibibytes.parse::<u64>() {
-      Ok(value) => Ok(value),
-      Err(error) => Err(format!(
-        "Could not parse memory quantity \"{kibibytes}\" into u64: {error}"
-      )),
-    }
+  if parts.len() != 3 {
+    return Err(format!("Invalid /proc/meminfo line: {line}"));
+  };
+
+  let kibibytes = parts[1];
+  match kibibytes.parse::<u64>() {
+    Ok(value) => Ok(value),
+    Err(error) => Err(format!(
+      "Could not parse memory quantity \"{kibibytes}\" into u64: {error}"
+    )),
   }
 }

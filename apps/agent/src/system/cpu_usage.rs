@@ -1,24 +1,21 @@
 use std::fs::read_to_string;
 
-use http::{client::Client, method::HTTPMethod};
 use watchtower_server::data::DataEntry;
 
-use crate::{config::Config, system::hostname::HostnameFetcher};
+use crate::watchtower_bridge::Bridge;
 
-pub struct CpuUsage<'a> {
+pub struct CpuUsage {
   last_total: u64,
   last_idle: u64,
-  hostname_fetcher: &'a HostnameFetcher,
 }
 
-impl<'a> CpuUsage<'a> {
-  pub fn new(hostname_fetcher: &'a HostnameFetcher) -> CpuUsage<'a> {
+impl CpuUsage {
+  pub fn new() -> CpuUsage {
     let (total, idle) = CpuUsage::read_cpu_times().unwrap_or((0, 0));
 
     CpuUsage {
       last_total: total,
       last_idle: idle,
-      hostname_fetcher,
     }
   }
 
@@ -38,48 +35,6 @@ impl<'a> CpuUsage<'a> {
     self.last_idle = new_idle;
 
     Ok(usage)
-  }
-
-  pub async fn send_to_watchtower(
-    &mut self,
-    config: &Config,
-    client: &mut Client,
-  ) -> Result<(), String> {
-    let usage = self.get_usage()?;
-
-    CpuUsage::send_data_to_watchtower(&self.hostname_fetcher, usage, config, client).await
-  }
-
-  pub async fn send_data_to_watchtower(
-    hostname_fetcher: &'a HostnameFetcher,
-    usage: f32,
-    config: &Config,
-    client: &mut Client,
-  ) -> Result<(), String> {
-    let hostname = match hostname_fetcher.get_hostname() {
-      Ok(hostname) => hostname,
-      Err(error) => {
-        return Err(format!("Failed to get device hostname: {error}"));
-      }
-    };
-
-    let mut connection = client
-      .request(
-        HTTPMethod::Post(),
-        &format!(
-          "{}/machine/{hostname}/set/cpu_usage",
-          config.watchtower_address
-        ),
-        None,
-      )
-      .await?;
-
-    let data = DataEntry::from(usage);
-
-    connection.set_content(&format!("{data}"));
-    connection.send().await?;
-
-    Ok(())
   }
 
   fn read_cpu_times() -> Result<(u64, u64), String> {
@@ -102,5 +57,14 @@ impl<'a> CpuUsage<'a> {
     let idle_time = values[3] + values[4];
 
     Ok((total_time, idle_time))
+  }
+}
+
+impl Bridge for CpuUsage {
+  fn get_data(&mut self) -> Result<(String, DataEntry), String> {
+    Ok((
+      String::from("cpu_usage"),
+      DataEntry::from(self.get_usage()?),
+    ))
   }
 }

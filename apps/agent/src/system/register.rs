@@ -2,14 +2,10 @@ use std::{thread::sleep, time};
 
 use http::{client::Client, method::HTTPMethod};
 
-use crate::{config::Config, system::hostname::HostnameFetcher};
+use crate::config::Config;
 
-pub async fn loop_register(
-  config: &Config,
-  client: &mut Client,
-  hostname_fetcher: &HostnameFetcher,
-) {
-  while let Err(_) = try_register(config, client, hostname_fetcher).await {
+pub async fn loop_register(config: &Config, client: &mut Client, hostname: &str) {
+  while let Err(_) = try_register(config, client, hostname).await {
     sleep(time::Duration::from_millis(1000));
   }
 }
@@ -17,15 +13,8 @@ pub async fn loop_register(
 pub async fn try_register(
   config: &Config,
   client: &mut Client,
-  hostname_fetcher: &HostnameFetcher,
+  hostname: &str,
 ) -> Result<(), String> {
-  let hostname = match hostname_fetcher.get_hostname() {
-    Ok(hostname) => hostname,
-    Err(error) => {
-      return Err(format!("Failed to get device hostname: {error}"));
-    }
-  };
-
   let mut connection = client
     .request(
       HTTPMethod::Post(),

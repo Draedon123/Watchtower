@@ -6,18 +6,23 @@ use watchtower_agent::{
   config::{Config, RunMode},
   help::display_help_message,
   system::{
-    cpu_usage::CpuUsage,
-    hostname::HostnameFetcher,
-    memory::{Memory, MemoryType},
-    register::loop_register,
+    cpu_usage::CpuUsage, hostname::get_hostname, memory::MemoryType, register::loop_register,
   },
   test::spawn_instances,
+  watchtower_bridge::{Bridge, send_to_watchtower},
 };
 
 #[tokio::main]
 async fn main() {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
+  let hostname = match get_hostname() {
+    Ok(hostname) => hostname,
+    Err(error) => {
+      eprintln!("{error}");
+      return;
+    }
+  };
 
   match config.mode {
     RunMode::Normal => {
@@ -31,28 +36,25 @@ async fn main() {
 
       client.default_headers = headers;
 
-      let hostname_fetcher = HostnameFetcher::new();
-      loop_register(&config, &mut client, &hostname_fetcher).await;
+      loop_register(&config, &mut client, &hostname).await;
 
-      let mut cpu_usage = CpuUsage::new(&hostname_fetcher);
-      let mut physical_memory = Memory::new(MemoryType::Physical, &hostname_fetcher);
-      let mut swap_memory = Memory::new(MemoryType::Swap, &hostname_fetcher);
+      let cpu_usage = CpuUsage::new();
+      let physical_memory = MemoryType::Physical;
+      let swap_memory = MemoryType::Swap;
+
+      let mut statistics: Vec<Box<dyn Bridge>> = vec![
+        Box::new(cpu_usage),
+        Box::new(physical_memory),
+        Box::new(swap_memory),
+      ];
+
       loop {
         sleep(time::Duration::from_millis(1000));
 
-        if let Err(error) = cpu_usage.send_to_watchtower(&config, &mut client).await {
-          eprintln!("Failed to send cpu usage to watchtower: {error}");
-        };
-
-        if let Err(error) = physical_memory
-          .send_to_watchtower(&config, &mut client)
-          .await
+        if let Err(error) =
+          send_to_watchtower(&mut statistics, &mut client, &config, &hostname).await
         {
-          eprintln!("Failed to send physical memory data to watchtower: {error}");
-        };
-
-        if let Err(error) = swap_memory.send_to_watchtower(&config, &mut client).await {
-          eprintln!("Failed to send swap memory data to watchtower: {error}");
+          eprintln!("{error}");
         };
       }
     }
