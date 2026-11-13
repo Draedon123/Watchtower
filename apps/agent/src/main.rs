@@ -38,9 +38,11 @@ async fn main() {
 
       loop_register(&config, &mut client, &hostname).await;
 
-      let cpu_usage = CpuUsage::new();
+      let mut cpu_usage = CpuUsage::new();
       let physical_memory = MemoryType::Physical;
       let swap_memory = MemoryType::Swap;
+
+      let _ = cpu_usage.get_usage();
 
       let mut statistics: Vec<Box<dyn Bridge>> = vec![
         Box::new(cpu_usage),
@@ -50,7 +52,6 @@ async fn main() {
 
       loop {
         sleep(time::Duration::from_millis(1000));
-
         if let Err(error) =
           send_to_watchtower(&mut statistics, &mut client, &config, &hostname).await
         {
@@ -64,9 +65,6 @@ async fn main() {
     }
     RunMode::Help => {
       display_help_message();
-    }
-    RunMode::Unknown(mode) => {
-      eprintln!("Unknown config mode \"{mode}\"");
     }
   };
 }

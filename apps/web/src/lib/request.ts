@@ -39,7 +39,7 @@ async function getAll(
   }
 
   const promises = machines.map((machine) =>
-    post(`machine/${machine}/all_data`).catch(() => null)
+    post(`machine/${machine}/get`).catch(() => null)
   );
 
   const data = await Promise.all(promises);

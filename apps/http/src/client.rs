@@ -36,7 +36,9 @@ impl Client {
 
     let host = match url.host() {
       Ok(host) => host,
-      Err(_) => return Err(format!("Could not get host from address \"{address}\"")),
+      Err(_) => {
+        return Err(format!("Could not get host from address \"{address}\""));
+      }
     };
     let port = url
       .port()

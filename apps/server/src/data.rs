@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub enum DataType {
   F32Value(f32),
   Vec2U64Value((u64, u64)),
+  None,
   Unknown(String),
 }
 
@@ -13,6 +14,7 @@ impl DataType {
     match self {
       DataType::F32Value(_) => "f32",
       DataType::Vec2U64Value(_) => "vec2u64",
+      DataType::None => "",
       DataType::Unknown(_) => "unknown",
     }
   }
@@ -24,7 +26,10 @@ impl Display for DataType {
 
     match self {
       DataType::F32Value(value) => write!(f, "{type_string}\n{value}"),
-      DataType::Vec2U64Value((value_1, value_2)) => write!(f, "{type_string}\n{value_1},{value_2}"),
+      DataType::Vec2U64Value((value_1, value_2)) => {
+        write!(f, "{type_string}\n{value_1},{value_2}")
+      }
+      DataType::None => Ok(()),
       DataType::Unknown(value) => write!(f, "{type_string}\n{value}"),
     }
   }
@@ -55,6 +60,13 @@ pub struct DataEntry {
 }
 
 impl DataEntry {
+  pub fn new(data: DataType) -> DataEntry {
+    DataEntry {
+      data,
+      timestamp: DataEntry::get_current_time(),
+    }
+  }
+
   fn get_current_time() -> u64 {
     SystemTime::now()
       .duration_since(UNIX_EPOCH)
@@ -65,19 +77,13 @@ impl DataEntry {
 
 impl From<f32> for DataEntry {
   fn from(value: f32) -> DataEntry {
-    DataEntry {
-      data: DataType::F32Value(value),
-      timestamp: DataEntry::get_current_time(),
-    }
+    DataEntry::new(DataType::F32Value(value))
   }
 }
 
 impl From<(u64, u64)> for DataEntry {
   fn from(value: (u64, u64)) -> DataEntry {
-    DataEntry {
-      data: DataType::Vec2U64Value(value),
-      timestamp: DataEntry::get_current_time(),
-    }
+    DataEntry::new(DataType::Vec2U64Value(value))
   }
 }
 
@@ -95,6 +101,7 @@ pub struct Data {
 
 type DataResult<T> = std::result::Result<T, DataResultError>;
 
+#[derive(Debug)]
 pub enum DataResultError {
   MachineNotFound(String),
   KeyNotFound(String),
@@ -163,20 +170,20 @@ impl Data {
     )
   }
 
-  pub fn get_machine_data_all(
-    &self,
-    machine: &str,
-  ) -> Result<&HashMap<String, VecDeque<DataEntry>>, DataResultError> {
+  pub fn list_machines(&self) -> Vec<&String> {
+    self.machine_data.keys().collect()
+  }
+
+  pub fn list_machine_keys(&self, machine: &str) -> DataResult<Vec<&str>> {
     Ok(
       self
         .machine_data
         .get(machine)
-        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?,
+        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+        .keys()
+        .map(|string| &string[..])
+        .collect(),
     )
-  }
-
-  pub fn list_machines(&self) -> Vec<&String> {
-    self.machine_data.keys().collect()
   }
 
   pub fn register_machine(&mut self, ip: String, machine: &str) -> bool {

@@ -93,69 +93,39 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_reader = data.clone();
   routes.route(
-    "/machine/[machine]/get/[key]",
+    "/machine/[machine]/get",
     HTTPMethod::Post(),
     move |request, mut response| {
       let data = data_reader.clone();
 
       Box::pin(async move {
-        let machine = request.slugs.get("machine").unwrap();
-        let key = request.slugs.get("key").unwrap();
-
         let data = data.read().await;
-        let recent_data = data.get_machine_data_recent(machine, key);
-        match recent_data {
-          Ok(data_entry) => {
-            response.set_content(&data_entry.to_string());
-            response.status_code = StatusCode::Status200;
-          }
-          Err(error) => {
-            response.set_content(&error.to_string());
-            response.status_code = StatusCode::Status400;
-          }
+
+        let machine = request.slugs.get("machine").unwrap();
+        // TODO: optimise
+        let keys = if request.http_request.get_content().is_empty() {
+          data.list_machine_keys(machine).unwrap()
+        } else {
+          request.http_request.get_content().lines().collect()
         };
 
-        response
-      })
-    },
-  );
+        let mut serialised_data = String::new();
 
-  let data_reader = data.clone();
-  routes.route(
-    "/machine/[machine]/all_data",
-    HTTPMethod::Post(),
-    move |request, mut response| {
-      let data = data_reader.clone();
+        for key in keys {
+          let recent_data = data.get_machine_data_recent(machine, key);
 
-      Box::pin(async move {
-        let machine = request.slugs.get("machine").unwrap();
+          match recent_data {
+            Ok(data_entry) => {
+              serialised_data.push_str(&format!("{key}\n{data_entry}\n"));
+            }
+            Err(error) => {
+              eprintln!("Failed to fetch \"{key}\" for \"{machine}\": {error}");
+            }
+          };
+        }
 
-        let data = data.read().await;
-        let machine_data = data.get_machine_data_all(machine);
-        match machine_data {
-          Ok(data_entry) => {
-            response.set_content(
-              &data_entry
-                .keys()
-                .filter_map(|key| {
-                  data
-                    .get_machine_data_recent(machine, key)
-                    .ok()
-                    .map(|data| (key, data))
-                })
-                .fold(String::new(), |joined, (key, data)| {
-                  format!("{joined}\n{key}\n{data}")
-                })
-                .trim(),
-            );
-            response.status_code = StatusCode::Status200;
-          }
-          Err(error) => {
-            response.set_content(&error.to_string());
-            response.status_code = StatusCode::Status400;
-          }
-        };
-
+        response.status_code = StatusCode::Status200;
+        response.set_content(&serialised_data);
         response
       })
     },
@@ -222,55 +192,40 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_writer = data.clone();
   let server_password = password.clone();
-  routes.route(
-    "/machine/[machine]/set/[key]",
-    HTTPMethod::Post(),
-    move |request, mut response| {
-      let data = data_writer.clone();
-      let server_password = Arc::clone(&server_password);
+  routes.route("/machine/[machine]/set", HTTPMethod::Post(), move |request, mut response| {
+    let data = data_writer.clone();
+    let server_password = Arc::clone(&server_password);
 
-      Box::pin(async move {
-        if !respond_if_unauthenticated(request, &mut response, &server_password) {
-          return response;
-        };
+    Box::pin(async move {
+      if !respond_if_unauthenticated(request, &mut response, &server_password) {
+        return response;
+      };
 
-        let content: Vec<_> = request.http_request.get_content().lines().collect();
-        let machine = request.slugs.get("machine").unwrap();
-        let key = request.slugs.get("key").unwrap();
+      let content: Vec<_> = request.http_request.get_content().lines().collect();
+      let machine = request.slugs.get("machine").unwrap();
+      
+      response.status_code = StatusCode::Status200;
+      
+      let mut data = data.write().await;
+      for i in 0..content.len() / 4 {
+        let key = content[i * 4];
+        let value_type = content[i * 4 + 1];
+        let value = content[i * 4 + 2];
+        // let timestamp = content[1 * 4 + 3];
 
-        let value_type = if content.is_empty() { "" } else { content[0] };
-        let value = if content.is_empty() { "" } else { content[1] };
         let new_data = DataType::from((value_type, value));
+        if let DataType::Unknown(value) = new_data {
+          eprintln!("Invalid value \"{value}\" (unknown type: {value_type})");
+        } else {
+          if let Err(error) = data.set_data(machine, key, new_data) {
+            eprintln!("Failed to set value of {value_type} \"{key}\"=\"{value}\" for machine \"{machine}\": {error}");
+          };
+        }
+      }
 
-        match new_data {
-          DataType::F32Value(value) =>{
-            response.status_code = StatusCode::Status200;
-
-            if let Err(error) = data.write().await.set_data(machine, key, DataType::F32Value(value)) {
-              eprintln!(
-                "Failed to set f32 value of \"{key}\"=\"{value}\" for machine \"{machine}\": {error}"
-              );
-            };
-          }
-          DataType::Vec2U64Value(value) =>{
-            response.status_code = StatusCode::Status200;
-
-            if let Err(error) = data.write().await.set_data(machine, key, DataType::Vec2U64Value(value)) {
-              eprintln!(
-                "Failed to set vec2u64 value of \"{key}\"=\"({}, {})\" for machine \"{machine}\": {error}", value.0, value.1
-              );
-            };
-          }
-          DataType::Unknown(value) => {
-            response.status_code = StatusCode::Status400;
-            response.set_content(&format!("Invalid value \"{value}\""));
-          }
-        };
-
-        response    
-      })
-    },
-  );
+      response
+    })
+  });
 
   routes
 }

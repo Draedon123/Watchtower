@@ -5,7 +5,6 @@ pub enum RunMode {
   Normal,
   Test(usize),
   Help,
-  Unknown(String),
 }
 
 #[derive(Clone)]
