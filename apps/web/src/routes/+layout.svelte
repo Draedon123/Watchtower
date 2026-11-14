@@ -1,9 +1,14 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
-  import { connectionStatus } from "$lib/request.svelte";
+  import { connectionStatus, updateMachines } from "$lib/request.svelte";
+  import { onMount } from "svelte";
 
   let { children } = $props();
+
+  onMount(() => {
+    updateMachines();
+  });
 </script>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />

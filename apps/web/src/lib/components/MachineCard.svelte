@@ -24,6 +24,7 @@
   import { untrack } from "svelte";
 
   import LineGraph from "./graphs/LineGraph.svelte";
+  import { resolve } from "$app/paths";
 
   let data: MachineData = $props();
 
@@ -54,8 +55,9 @@
   });
 </script>
 
-<div class="container">
-  <h2>{data.name}</h2>
+<a href={resolve(`/machines/${data.name}`)} class="container">
+  <!-- data is undefined for a split second after the /machines page loads -->
+  <h2>{data.name === undefined ? "Loading" : data.name}</h2>
 
   <div class="stat">
     {#if !data.cpuUsage}
@@ -114,7 +116,7 @@
       yLabel={{ message: "CPU Usage %" }}
     ></LineGraph>
   </div>
-</div>
+</a>
 
 <style lang="scss">
   h2 {
@@ -131,6 +133,13 @@
 
     border: 1px solid #808080;
     border-radius: 10px;
+
+    text-decoration: none;
+    transition: transform 0.1s ease-in-out;
+
+    &:hover {
+      transform: scale(1.02);
+    }
   }
 
   .graph {
