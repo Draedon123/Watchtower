@@ -16,7 +16,7 @@
   level: 0 | 1 | 2 | 3 | 4 = 0,
   trimVerticalLine: boolean = false
 )}
-  {@const selected = page.url.pathname === path}
+  {@const selected = decodeURIComponent(page.url.pathname) === path}
   <!-- eslint-disable svelte/no-navigation-without-resolve -->
   <div
     class="tab-container"
