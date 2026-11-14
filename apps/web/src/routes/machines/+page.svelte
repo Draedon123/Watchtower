@@ -89,13 +89,13 @@
     text-align: center;
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 900px) {
     .machines {
       grid-template-columns: minmax(0, 1fr);
     }
   }
 
-  @media (min-width: 700px) and (max-width: 1050px) {
+  @media (min-width: 900px) and (max-width: 1300px) {
     .machines {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
