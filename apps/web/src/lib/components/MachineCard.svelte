@@ -114,6 +114,7 @@
       title={{ message: "CPU Usage" }}
       xLabel={{ message: "Time (s)" }}
       yLabel={{ message: "CPU Usage %" }}
+      yTickFormat={(percent) => Math.round(100 * percent).toString() + "%"}
     ></LineGraph>
   </div>
 </a>

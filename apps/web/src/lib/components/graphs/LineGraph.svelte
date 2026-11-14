@@ -17,6 +17,7 @@
     title?: Text;
     xLabel?: Text;
     yLabel?: Text;
+    yTickFormat?: (value: number) => string;
   };
 
   let {
@@ -32,6 +33,7 @@
     title,
     xLabel,
     yLabel,
+    yTickFormat = (x) => x.toString(),
   }: Props = $props();
 
   let x = $derived(data.x);
@@ -189,6 +191,16 @@
       r={markerRadius}
       fill={markerColour}
     />
+  {/each}
+
+  {#each yAxisGrid as y (y)}
+    <text
+      class="y-tick"
+      x={xPlotToPx(plotLeft)}
+      y={yPlotToPx(y)}
+      style="stroke: #aaa8; fill: #aaa8; font-size: 10px;"
+      >{yTickFormat(y)}</text
+    >
   {/each}
 </svg>
 
