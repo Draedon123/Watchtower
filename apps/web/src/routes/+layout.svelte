@@ -73,6 +73,7 @@
     }
 
     * {
+      font-family: "JetBrains Mono", monospace;
       color: #ddd;
 
       $scrollbar-track-colour: #0000;
@@ -90,6 +91,22 @@
       ::-webkit-scrollbar-thumb:hover {
         scrollbar-color: $scrollbar-thumb-colour $scrollbar-thumb-hover-colour;
       }
+    }
+
+    @font-face {
+      font-family: "JetBrains Mono";
+      src: url("/fonts/JetBrainsMono[wght].ttf") format("truetype");
+      font-weight: 100 800;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "JetBrains Mono";
+      src: url("/fonts/JetBrainsMono-Italic[wght].ttf") format("truetype");
+      font-weight: 100 800;
+      font-style: italic;
+      font-display: swap;
     }
   }
 
