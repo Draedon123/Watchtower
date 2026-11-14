@@ -1,6 +1,6 @@
 ![Banner](Banner.png)
 
-Software to monitor multiple Linux machines. Consists of an agent that runs on each machine that communicates with a central server, which can then be queried and interfaced through a webpage.
+Software to monitor multiple Linux machines, built with Rust and SvelteKit. Consists of an agent that runs on each machine that communicates with a central server, which can then be queried and interfaced through a webpage.
 
 Go check out an example deployment [here](http://watchtower.draedon.xyz)!
 
