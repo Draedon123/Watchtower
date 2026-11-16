@@ -10,6 +10,7 @@ use tokio::{
 pub struct ServerRequest<'a> {
   pub http_request: &'a mut Request<'a>,
   pub slugs: HashMap<String, String>,
+  pub request_id: u64,
 }
 
 impl<'a> ServerRequest<'a> {
@@ -24,10 +25,11 @@ pub struct Server<'a> {
 
   config: &'a Config,
   on_connection_close: Option<OnConnectionClose>,
+  request_id: u64,
 }
 
 pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type OnConnectionClose = Arc<dyn Fn(TcpStream) -> OnConnectionCloseFuture + Send + Sync>;
+pub type OnConnectionClose = Arc<dyn Fn(TcpStream, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
@@ -36,13 +38,14 @@ impl<'a> Server<'a> {
       config,
       default_response_headers: Headers::new(),
       on_connection_close: None,
+      request_id: 0,
     };
 
     Ok(server)
   }
 
   /// Starts listening on the supplied port. Also blocks the thread.
-  pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+  pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
     let server_address = format!("127.0.0.1:{}", self.config.port);
 
     let listener = TcpListener::bind(&server_address).await?;
@@ -56,6 +59,7 @@ impl<'a> Server<'a> {
       let routes = self.routes.clone();
       let default_response_headers = self.default_response_headers.clone();
       let on_connection_close = self.on_connection_close.clone();
+      let request_id = self.request_id;
 
       connections.spawn(async move {
         Self::handle_connection(
@@ -63,9 +67,12 @@ impl<'a> Server<'a> {
           routes,
           &default_response_headers,
           on_connection_close,
+          request_id,
         )
         .await
       });
+
+      self.request_id += 1;
     }
   }
 
@@ -75,14 +82,12 @@ impl<'a> Server<'a> {
 
   pub fn set_on_connection_close<F, Fut>(&mut self, callback: F)
   where
-    F: Fn(TcpStream) -> Fut + Send + Sync + 'static,
+    F: Fn(TcpStream, u64) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
   {
-    self.on_connection_close =
-      Some(
-        Arc::new(move |stream| Box::pin(callback(stream)) as OnConnectionCloseFuture)
-          as OnConnectionClose,
-      );
+    self.on_connection_close = Some(Arc::new(move |stream, request_id| {
+      Box::pin(callback(stream, request_id)) as OnConnectionCloseFuture
+    }) as OnConnectionClose);
   }
 
   pub fn clear_on_connection_close(&mut self) {
@@ -94,6 +99,7 @@ impl<'a> Server<'a> {
     routes: Arc<Routes>,
     default_response_headers: &Headers,
     on_connection_close: Option<OnConnectionClose>,
+    request_id: u64,
   ) {
     loop {
       let mut http_request = match Request::read_from_buffer(&mut stream).await {
@@ -147,15 +153,15 @@ impl<'a> Server<'a> {
       let mut request = ServerRequest {
         http_request: &mut http_request,
         slugs: request_slugs,
+        request_id,
       };
 
       let mut response = Response::new();
-
       match route {
         Some(route) => {
           response.headers = default_response_headers.clone();
 
-          let response = (route.callback)(&mut request, response).await;
+          let response = (route.callback)(&request, response).await;
 
           if let Err(error) = request.respond(&response).await {
             eprintln!(
@@ -166,7 +172,6 @@ impl<'a> Server<'a> {
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
-          let mut response = Response::new();
 
           response.status_code = http::status_codes::StatusCode::Status404;
           if let Err(error) = request.respond(&response).await {
@@ -183,7 +188,7 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(stream).await;
+      callback(stream, request_id).await;
     };
   }
 }

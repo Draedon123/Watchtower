@@ -34,17 +34,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   server.set_default_response_headers(default_response_headers);
 
   let data_writer = data.clone();
-  server.set_on_connection_close(move |stream| {
+  server.set_on_connection_close(move |_, request_id| {
     let data = data_writer.clone();
 
     async move {
-      let ip = stream.peer_addr().unwrap().to_string();
-
-      let machine = data.write().await.unregister_machine(&ip);
+      let machine = data.write().await.unregister_machine(request_id);
 
       match machine {
-        Some(machine) => println!("Successfully unregistered {machine} ({ip})"),
-        None => println!("Failed to unregister machine from ip: {ip}"),
+        Some(machine) => println!("Successfully unregistered {machine} (id: {request_id})"),
+        None => println!("Failed to unregister machine with id: {request_id}"),
       };
     }
   });
@@ -175,10 +173,11 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
           let machine = request.slugs.get("machine").unwrap();
 
-          response.status_code = if data.write().await.register_machine(
-            request.http_request.stream.peer_addr().unwrap().to_string(),
-            machine,
-          ) {
+          response.status_code = if data
+            .write()
+            .await
+            .register_machine(request.request_id, machine)
+          {
             StatusCode::Status200
           } else {
             StatusCode::Status400

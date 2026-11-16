@@ -121,7 +121,7 @@ impl std::fmt::Display for DataResultError {
 pub struct Data {
   data_by_machine: HashMap<String, HashMap<String, DataEntry>>,
   data_by_key: HashMap<String, HashMap<String, DataEntry>>,
-  machine_by_connection: HashMap<String, String>,
+  machine_by_id: HashMap<u64, String>,
 }
 
 impl Data {
@@ -129,7 +129,7 @@ impl Data {
     Data {
       data_by_machine: HashMap::new(),
       data_by_key: HashMap::new(),
-      machine_by_connection: HashMap::new(),
+      machine_by_id: HashMap::new(),
     }
   }
 
@@ -189,10 +189,10 @@ impl Data {
     )
   }
 
-  pub fn register_machine(&mut self, ip: String, machine: &str) -> bool {
+  pub fn register_machine(&mut self, request_id: u64, machine: &str) -> bool {
     let machine = machine.to_string();
 
-    self.machine_by_connection.insert(ip, machine.clone());
+    self.machine_by_id.insert(request_id, machine.clone());
 
     if !self.data_by_machine.contains_key(&machine) {
       self.data_by_machine.insert(machine, HashMap::new());
@@ -202,8 +202,8 @@ impl Data {
     }
   }
 
-  pub fn unregister_machine(&mut self, ip: &str) -> Option<String> {
-    let machine = self.machine_by_connection.remove(ip);
+  pub fn unregister_machine(&mut self, id: u64) -> Option<String> {
+    let machine = self.machine_by_id.remove(&id);
 
     match machine {
       Some(machine) => {
