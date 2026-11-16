@@ -12,7 +12,9 @@
     "strictBuiltinIteratorReturn": true,
     "strictFunctionTypes": true,
     "strictNullChecks": true,
-    "strictPropertyInitialization": true
+    "strictPropertyInitialization": true,
+
+    "types": ["node"]
   },
   "include": ["*.cjs"]
 }
