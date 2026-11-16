@@ -58,7 +58,10 @@ function addRedirect(route) {
 
   const redirectPageContents = redirectTemplate
     .replaceAll(TITLE_REPLACE_STRING, `Redirecting to ${routePath}...`)
-    .replaceAll(PATH_REPLACE_STRING, `${routePath}`);
+    .replaceAll(
+      PATH_REPLACE_STRING,
+      `/?redirect=${encodeURIComponent(routePath)}`
+    );
 
   const redirectFileLocation = path.join(buildPath, _routePath + ".html");
 

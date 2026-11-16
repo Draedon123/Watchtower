@@ -1,10 +1,14 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
+  import { page } from "$app/state";
   import ConnectionFailure from "$lib/components/ConnectionFailure.svelte";
   import type { MemoryData } from "$lib/components/MachineCard.svelte";
   import { F32Value, Vec2U64Value } from "$lib/DataTypes";
   import { connectionStatus, getAllStatisticsByKey } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
 
+  let redirect = $derived(page.url.searchParams.get("redirect"));
   let averageCpuUsage: number = $state(0);
   let physicalMemory: MemoryData[] = $state([]);
   let swapMemory: MemoryData[] = $state([]);
@@ -57,6 +61,16 @@
   }
 
   onMount(() => {
+    if (redirect !== null) {
+      // @ts-expect-error redirect is an arbitrary string, but should be
+      // correct given how it's generated from scripts/addRedirects.cjs
+      const resolved = resolve(decodeURIComponent(redirect));
+
+      console.log(`Redirecting to ${resolved}`);
+
+      goto(resolved);
+    }
+
     loop = setIntervalImmediately(async () => {
       if (
         Array.isArray(connectionStatus.connectedMachines) &&
