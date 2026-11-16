@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "prebuild": "pnpm check && pnpm lint",
     "build": "vite build",
-    "postbuild": "node scripts/addRedirects.cjs",
+    "postbuild": "pnpm addRedirects",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

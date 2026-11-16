@@ -55,7 +55,7 @@
   });
 </script>
 
-<a href={resolve(`/machines/${data.name}`)} class="container">
+<a href={resolve(`/machine?key=${data.name}`)} class="container">
   <!-- data is undefined for a split second after the /machines page loads -->
   <h2>{data.name === undefined ? "Loading" : data.name}</h2>
 
