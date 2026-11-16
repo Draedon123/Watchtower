@@ -64,6 +64,13 @@
     loop = setIntervalImmediately(async () => {
       await updateMachines();
 
+      if (
+        Array.isArray(connectionStatus.connectedMachines) &&
+        connectionStatus.connectedMachines.length === 0
+      ) {
+        return;
+      }
+
       const [cpuUsages, _physicalMemory, _swapMemory] = await Promise.all([
         getAllStatisticsByKey("cpu_usage"),
         getAllStatisticsByKey("memory_physical"),
