@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn authenticate(request: &mut ServerRequest<'_>, server_password: &str) -> bool {
+fn authenticate(request: &ServerRequest<'_>, server_password: &str) -> bool {
   let submitted_password = match request.http_request.headers.get_header("Authorization") {
     Some(password) => password,
     None => &String::new(),
@@ -64,7 +64,7 @@ fn authenticate(request: &mut ServerRequest<'_>, server_password: &str) -> bool 
 }
 
 fn respond_if_unauthenticated(
-  request: &mut ServerRequest<'_>,
+  request: &ServerRequest<'_>,
   response: &mut Response,
   server_password: &str,
 ) -> bool {
