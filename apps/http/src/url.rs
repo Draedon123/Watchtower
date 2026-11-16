@@ -134,6 +134,7 @@ impl Url {
     Ok(())
   }
 
+  /// Returns an Err(()) when the host cannot be determined from self.host()
   pub fn percent_encode(&self) -> Result<String, ()> {
     let host = self.host()?;
     let path = self

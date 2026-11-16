@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use http::status_codes::StatusCode;
 
@@ -76,7 +76,10 @@ impl DataEntry {
   fn get_current_time() -> u64 {
     SystemTime::now()
       .duration_since(UNIX_EPOCH)
-      .unwrap()
+      .unwrap_or_else(|error| {
+        eprintln!("Failed to fetch system time: {error}. Returning UNIX_EPOCH");
+        Duration::from_secs(0)
+      })
       .as_secs()
   }
 }

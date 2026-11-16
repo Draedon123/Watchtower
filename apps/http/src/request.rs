@@ -51,7 +51,10 @@ impl<'a> Request<'a> {
     let content = format!(
       "{} {} HTTP/1.1\r\n{}\r\n{}",
       self.method,
-      self.path.percent_encode().unwrap(),
+      self
+        .path
+        .percent_encode()
+        .unwrap_or_else(|_| self.path.raw.clone()),
       self.headers,
       self.content
     );
@@ -105,8 +108,7 @@ impl<'a> Request<'a> {
 
     let content_length = headers
       .get_header("Content-Length")
-      .unwrap_or(&String::from("0"))
-      .parse::<usize>()
+      .map(|length| length.parse::<usize>().unwrap_or(0))
       .unwrap_or(0);
 
     let mut content = vec![0; content_length];
