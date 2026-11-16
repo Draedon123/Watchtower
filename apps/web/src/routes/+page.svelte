@@ -125,6 +125,8 @@
   <ConnectionFailure />
 {:else if connectionStatus.connectedMachines === null}
   <p class="center">Loading data...</p>
+{:else if connectionStatus.connectedMachines.length === 0}
+  <p>No machines monitored!</p>
 {:else}
   <p>
     Average cpu usage across all machines:
