@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import MachineCard from "$lib/components/MachineCard.svelte";
   import type { MachineData } from "$lib/components/MachineCard.svelte";
@@ -38,6 +40,11 @@
   }
 
   onMount(async () => {
+    if (machineName === "") {
+      goto(resolve("/machines"));
+      return;
+    }
+
     loop = setIntervalImmediately(async () => {
       if (!machineExists) {
         return;
