@@ -34,7 +34,10 @@
   level: 0 | 1 | 2 | 3 | 4 = 0,
   trimVerticalLine: boolean = false
 )}
-  {@const selected = decodeURIComponent(page.url.pathname) === path}
+  {@const selected =
+    decodeURIComponent(
+      page.url.pathname + (path.includes("?") ? page.url.search : "")
+    ) === path}
   <!-- eslint-disable svelte/no-navigation-without-resolve -->
   <div
     class="tab-container"
@@ -64,7 +67,7 @@
   {#if Array.isArray(connectionStatus.connectedMachines)}
     {#each connectionStatus.connectedMachines as machine, i (machine)}
       {@render Tab(
-        resolve(`/machines/${machine}`),
+        resolve(`/machine?key=${machine}`),
         machine,
         1,
         i === connectionStatus.connectedMachines.length - 1

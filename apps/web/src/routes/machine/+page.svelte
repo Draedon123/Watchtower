@@ -8,7 +8,7 @@
   } from "$lib/request.svelte";
   import { onDestroy, onMount, untrack } from "svelte";
 
-  let machineName = $derived(page.params.slug as string);
+  let machineName = $derived(page.url.searchParams.get("key") ?? "");
   let data: MachineData | null = $state(null);
   let loop: NodeJS.Timeout | null = null;
   let hasLoadedData = $state(false);
