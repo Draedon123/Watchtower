@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use http::status_codes::StatusCode;
+
+use crate::data::DataResultError::{KeyNotFound, MachineNotFound, NoValuesError};
+
 #[derive(Clone)]
 pub enum DataType {
   F32Value(f32),
@@ -114,6 +118,16 @@ impl std::fmt::Display for DataResultError {
       DataResultError::NoValuesError(key) => {
         write!(f, "No values for key \"{key}\" found")
       }
+    }
+  }
+}
+
+impl DataResultError {
+  pub fn get_http_error_code(&self) -> StatusCode {
+    match *self {
+      MachineNotFound(_) | KeyNotFound(_) => StatusCode::Status404,
+      // TODO: return entire vector and update status code
+      NoValuesError(_) => StatusCode::Status404,
     }
   }
 }

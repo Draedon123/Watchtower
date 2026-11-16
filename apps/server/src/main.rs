@@ -102,7 +102,14 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let machine = request.slugs.get("machine").unwrap();
         // TODO: optimise
         let keys = if request.http_request.get_content().is_empty() {
-          data.list_machine_keys(machine).unwrap()
+          match data.list_machine_keys(machine) {
+            Ok(data) => data,
+            Err(error) => {
+              response.status_code = error.get_http_error_code();
+              response.set_content(&error.to_string());
+              return response;
+            }
+          }
         } else {
           request.http_request.get_content().lines().collect()
         };

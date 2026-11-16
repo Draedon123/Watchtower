@@ -6,7 +6,6 @@
   import {
     connectionStatus,
     getAllStatisticsByMachine,
-    updateMachines,
   } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
 
@@ -25,13 +24,13 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      await updateMachines();
-
-      if (Array.isArray(connectionStatus.connectedMachines)) {
-        machineData = await getAllStatisticsByMachine(
-          connectionStatus.connectedMachines
-        );
+      if (!Array.isArray(connectionStatus.connectedMachines)) {
+        return;
       }
+
+      machineData = await getAllStatisticsByMachine(
+        connectionStatus.connectedMachines
+      );
     }, 1000);
   });
 

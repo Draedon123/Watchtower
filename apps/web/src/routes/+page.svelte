@@ -2,11 +2,7 @@
   import ConnectionFailure from "$lib/components/ConnectionFailure.svelte";
   import type { MemoryData } from "$lib/components/MachineCard.svelte";
   import { F32Value, Vec2U64Value } from "$lib/DataTypes";
-  import {
-    connectionStatus,
-    getAllStatisticsByKey,
-    updateMachines,
-  } from "$lib/request.svelte";
+  import { connectionStatus, getAllStatisticsByKey } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
 
   let averageCpuUsage: number = $state(0);
@@ -62,8 +58,6 @@
 
   onMount(() => {
     loop = setIntervalImmediately(async () => {
-      await updateMachines();
-
       if (
         Array.isArray(connectionStatus.connectedMachines) &&
         connectionStatus.connectedMachines.length === 0

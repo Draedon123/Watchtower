@@ -2,13 +2,20 @@
   import { page } from "$app/state";
   import MachineCard from "$lib/components/MachineCard.svelte";
   import type { MachineData } from "$lib/components/MachineCard.svelte";
-  import { getAllStatisticsByMachine } from "$lib/request.svelte";
+  import {
+    connectionStatus,
+    getAllStatisticsByMachine,
+  } from "$lib/request.svelte";
   import { onDestroy, onMount, untrack } from "svelte";
 
   let machineName = $derived(page.params.slug as string);
   let data: MachineData | null = $state(null);
   let loop: NodeJS.Timeout | null = null;
   let hasLoadedData = $state(false);
+  let machineExists = $derived(
+    Array.isArray(connectionStatus.connectedMachines) &&
+      connectionStatus.connectedMachines.includes(machineName)
+  );
 
   // hack to force a full and instant refresh of `data` and the `MachineCard`
   $effect(() => {
@@ -32,6 +39,10 @@
 
   onMount(async () => {
     loop = setIntervalImmediately(async () => {
+      if (!machineExists) {
+        return;
+      }
+
       data = (await getAllStatisticsByMachine([machineName]))[0];
       hasLoadedData = true;
     }, 1000);
@@ -46,22 +57,22 @@
 </script>
 
 <h1>{machineName}</h1>
-<p style="text-align: center">
-  This is just placeholder data! In reality, there should be more detailed data
-  here
-</p>
 
-<div class="card">
-  {#if data === null}
-    {#if !hasLoadedData}
-      <p>Loading data...</p>
+{#if machineExists}
+  <div class="card">
+    {#if data === null}
+      {#if !hasLoadedData}
+        <p>Loading data...</p>
+      {:else}
+        <p>Failed to load data!</p>
+      {/if}
     {:else}
-      <p>Failed to load data!</p>
+      <MachineCard {...data} />
     {/if}
-  {:else}
-    <MachineCard {...data} />
-  {/if}
-</div>
+  </div>
+{:else}
+  <p style="text-align: center">Machine not found!</p>
+{/if}
 
 <style lang="scss">
   h1 {

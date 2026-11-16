@@ -2,12 +2,25 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { connectionStatus, updateMachines } from "$lib/request.svelte";
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
 
   let { children } = $props();
 
+  let loop: NodeJS.Timeout | null = null;
+
   onMount(() => {
     updateMachines();
+
+    loop = setInterval(async () => {
+      await updateMachines();
+    }, 1000);
+  });
+
+  onDestroy(() => {
+    if (loop !== null) {
+      clearInterval(loop);
+      loop = null;
+    }
   });
 </script>
 
