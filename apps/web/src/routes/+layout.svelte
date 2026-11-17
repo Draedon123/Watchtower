@@ -1,18 +1,55 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
+  import NotificationManager from "$lib/components/notifications/NotificationManager.svelte";
+  import { notifications } from "$lib/notifications.svelte";
   import { connectionStatus, updateMachines } from "$lib/request.svelte";
   import { onDestroy, onMount } from "svelte";
 
   let { children } = $props();
 
   let loop: NodeJS.Timeout | null = null;
+  let oldMachinesList: string[] = [];
 
-  onMount(() => {
-    updateMachines();
+  onMount(async () => {
+    await updateMachines();
+    oldMachinesList = Array.isArray(connectionStatus.connectedMachines)
+      ? [...connectionStatus.connectedMachines]
+      : [];
 
     loop = setInterval(async () => {
       await updateMachines();
+
+      if (!Array.isArray(connectionStatus.connectedMachines)) {
+        return;
+      }
+
+      // TODO: optimise. this is O(n^2)
+      if (connectionStatus.connectedMachines.length > oldMachinesList.length) {
+        for (const machine of connectionStatus.connectedMachines) {
+          if (machine in oldMachinesList) {
+            continue;
+          }
+
+          notifications.addNotification(`Machine "${machine}" connected`);
+          oldMachinesList.push(machine);
+        }
+      } else if (
+        connectionStatus.connectedMachines.length < oldMachinesList.length
+      ) {
+        for (let i = 0; i < oldMachinesList.length; i++) {
+          const machine = oldMachinesList[i];
+
+          if (machine in connectionStatus.connectedMachines) {
+            continue;
+          }
+
+          notifications.addNotification(`Machine "${machine}" disconnected`);
+          oldMachinesList.splice(i, 1);
+          // account for modifying the length of the array
+          i--;
+        }
+      }
     }, 1000);
   });
 
@@ -75,6 +112,8 @@
     {/each}
   {/if}
 </nav>
+
+<NotificationManager />
 
 <main>
   {@render children()}
