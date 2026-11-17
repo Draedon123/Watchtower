@@ -1,10 +1,9 @@
-use crate::{header::Headers, status_codes::StatusCode};
+use crate::{body::Body, header::Headers, status_codes::StatusCode};
 
 pub struct Response {
   pub headers: Headers,
   pub status_code: StatusCode,
-
-  content: String,
+  pub body: Body,
 }
 
 impl Response {
@@ -12,32 +11,16 @@ impl Response {
     Response {
       headers: Headers::new(),
       status_code: StatusCode::Unknown(0),
-      content: String::new(),
+      body: Body::new(),
     }
   }
 
-  pub fn set_content(&mut self, content: &str) {
-    self.content = content.to_string();
-
-    self
-      .headers
-      .set_header("Content-Length", &self.content.len().to_string())
-      .set_header("Content-Type", "text/plain; charset=utf-8");
-  }
-
-  pub fn get_content(&self) -> &str {
-    &self.content
-  }
-}
-
-impl ToString for Response {
-  fn to_string(&self) -> String {
+  pub fn serialise_header(&self) -> String {
     format!(
-      "HTTP/1.1 {} {}\r\n{}\r\n{}",
+      "HTTP/1.1 {} {}\r\n{}\r\n",
       self.status_code.get_code(),
       self.status_code.get_message(),
       self.headers,
-      self.content
     )
   }
 }

@@ -18,7 +18,7 @@ pub async fn try_register(
   client: &mut Client,
   hostname: &str,
 ) -> Result<(), String> {
-  let mut connection = client
+  let mut request = client
     .request(
       HTTPMethod::Post(),
       &format!("{}/machine/register/{hostname}", config.watchtower_address),
@@ -26,7 +26,7 @@ pub async fn try_register(
     )
     .await?;
 
-  if let Err(error) = connection.send().await {
+  if let Err(error) = client.send_request(&mut request).await {
     client.reconnect_loop(1000).await;
     return Err(error);
   };

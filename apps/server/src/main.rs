@@ -102,17 +102,17 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         let machine = request.slugs.get("machine").unwrap();
         // TODO: optimise
-        let keys = if request.http_request.get_content().is_empty() {
+        let keys = if request.http_request.body.content.is_empty() {
           match data.list_machine_keys(machine) {
             Ok(data) => data,
             Err(error) => {
               response.status_code = error.get_http_error_code();
-              response.set_content(&error.to_string());
+              response.body.content = error.to_string();
               return response;
             }
           }
         } else {
-          request.http_request.get_content().lines().collect()
+          request.http_request.body.content.lines().collect()
         };
 
         let mut serialised_data = String::new();
@@ -131,7 +131,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
 
         response.status_code = StatusCode::Status200;
-        response.set_content(&serialised_data);
+        response.body.content = serialised_data;
         response
       })
     },
@@ -147,16 +147,14 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
       Box::pin(async move {
         {
           response.status_code = StatusCode::Status200;
-          response.set_content(
-            &data
-              .read()
-              .await
-              .list_machines()
-              .iter()
-              .map(|string| string.as_str())
-              .collect::<Vec<_>>()
-              .join("\n"),
-          );
+          response.body.content = data
+            .read()
+            .await
+            .list_machines()
+            .iter()
+            .map(|string| string.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
 
           response
         }
@@ -208,7 +206,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         return response;
       };
 
-      let content: Vec<_> = request.http_request.get_content().lines().collect();
+      let content: Vec<_> = request.http_request.body.content.lines().collect();
       let machine = request.slugs.get("machine").unwrap();
 
       response.status_code = StatusCode::Status200;
@@ -246,14 +244,14 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         let key = request.slugs.get("key").unwrap();
         // TODO: optimise
-        let machines: Vec<_> = if request.http_request.get_content().is_empty() {
+        let machines: Vec<_> = if request.http_request.body.content.is_empty() {
           data
             .list_machines()
             .iter()
             .map(|machine| &machine[..])
             .collect()
         } else {
-          request.http_request.get_content().lines().collect()
+          request.http_request.body.content.lines().collect()
         };
 
         let mut serialised_data = String::new();
@@ -272,7 +270,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
 
         response.status_code = StatusCode::Status200;
-        response.set_content(&serialised_data);
+        response.body.content = serialised_data;
         response
       })
     },

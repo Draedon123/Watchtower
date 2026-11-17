@@ -13,7 +13,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
   config: &Config,
   hostname: &str,
 ) -> Result<(), String> {
-  let mut connection = http_client
+  let mut request = http_client
     .request(
       HTTPMethod::Post(),
       &format!("{}/machine/{hostname}/set", config.watchtower_address),
@@ -32,8 +32,8 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
     }
   }
 
-  connection.set_content(&serialised_data);
-  connection.send().await?;
+  request.body.content = serialised_data;
+  http_client.send_request(&mut request).await?;
 
   Ok(())
 }

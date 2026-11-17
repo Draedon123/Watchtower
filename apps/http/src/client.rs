@@ -2,12 +2,15 @@ use std::time::Duration;
 
 use tokio::{net::TcpStream, time::sleep};
 
-use crate::{header::Headers, method::HTTPMethod, request::Request, url::Url};
+use crate::{
+  header::Headers, http_connection::HTTPConnection, method::HTTPMethod, request::Request,
+  response::Response, url::Url,
+};
 
 pub struct Client {
   pub default_headers: Headers,
 
-  stream: Option<TcpStream>,
+  pub connection: Option<HTTPConnection>,
   host: String,
   port: u16,
 }
@@ -15,7 +18,7 @@ pub struct Client {
 impl Client {
   pub fn new() -> Client {
     Client {
-      stream: None,
+      connection: None,
       host: String::new(),
       port: 0,
       default_headers: Headers::new(),
@@ -27,7 +30,7 @@ impl Client {
     method: HTTPMethod,
     address: &str,
     headers: Option<Headers>,
-  ) -> Result<Request<'_>, String> {
+  ) -> Result<Request, String> {
     let url = Url::new(address);
 
     if let Ok(protocol) = url.protocol() {
@@ -57,11 +60,11 @@ impl Client {
         Err(error) => return Err(error.to_string()),
       };
 
-      self.stream = Some(stream);
+      self.connection = Some(HTTPConnection::new(stream));
     };
 
-    if let Some(stream) = self.stream.as_mut() {
-      let mut request = Request::new(stream);
+    if let Some(_) = self.connection {
+      let mut request = Request::new();
       request.method = method;
       request.path = url;
 
@@ -74,6 +77,20 @@ impl Client {
       Ok(request)
     } else {
       Err(String::from("No connection made"))
+    }
+  }
+
+  pub async fn send_request(&mut self, request: &mut Request) -> Result<(), String> {
+    match self.connection.as_mut() {
+      Some(connection) => Ok(connection.send_request(request).await?),
+      None => Err(String::from("Could not send request: disconnected")),
+    }
+  }
+
+  pub async fn send_response(&mut self, response: &mut Response) -> Result<(), String> {
+    match self.connection.as_mut() {
+      Some(connection) => Ok(connection.send_response(response).await?),
+      None => Err(String::from("Could not send request: disconnected")),
     }
   }
 
@@ -92,7 +109,7 @@ impl Client {
 
   pub async fn try_reconnect_once(&mut self) -> Result<(), std::io::Error> {
     let stream = TcpStream::connect((&self.host[..], self.port)).await?;
-    self.stream = Some(stream);
+    self.connection = Some(HTTPConnection::new(stream));
 
     Ok(())
   }

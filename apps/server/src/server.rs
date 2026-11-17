@@ -1,5 +1,7 @@
 use crate::{config::Config, route::Routes};
-use http::{header::Headers, request::Request, response::Response, url::Url};
+use http::{
+  header::Headers, http_connection::HTTPConnection, request::Request, response::Response, url::Url,
+};
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use tokio::{
@@ -8,15 +10,9 @@ use tokio::{
 };
 
 pub struct ServerRequest<'a> {
-  pub http_request: &'a mut Request<'a>,
+  pub http_request: &'a mut Request,
   pub slugs: HashMap<String, String>,
   pub request_id: u64,
-}
-
-impl<'a> ServerRequest<'a> {
-  pub async fn respond(&mut self, response: &Response) -> Result<(), String> {
-    self.http_request.respond(response).await
-  }
 }
 
 pub struct Server<'a> {
@@ -95,14 +91,17 @@ impl<'a> Server<'a> {
   }
 
   async fn handle_connection(
-    mut stream: TcpStream,
+    stream: TcpStream,
     routes: Arc<Routes>,
     default_response_headers: &Headers,
     on_connection_close: Option<OnConnectionClose>,
     request_id: u64,
   ) {
+    let mut connection = HTTPConnection::new(stream);
+    println!("Received request {request_id}");
+
     loop {
-      let mut http_request = match Request::read_from_buffer(&mut stream).await {
+      let mut http_request = match Request::read_from_buffer(&mut connection.stream).await {
         Ok(Some(request)) => request,
         Ok(None) => break,
         Err(error) => {
@@ -132,7 +131,7 @@ impl<'a> Server<'a> {
         None => false,
       };
 
-      println!("Received {request_method} request for {request_path}");
+      println!("Received {request_method} request for {request_path} ({request_id})");
 
       let routes = &routes.routes;
       let route = routes.iter().find(|route| {
@@ -150,7 +149,7 @@ impl<'a> Server<'a> {
         }
       });
 
-      let mut request = ServerRequest {
+      let request = ServerRequest {
         http_request: &mut http_request,
         slugs: request_slugs,
         request_id,
@@ -161,20 +160,23 @@ impl<'a> Server<'a> {
         Some(route) => {
           response.headers = default_response_headers.clone();
 
-          let response = (route.callback)(&request, response).await;
+          let mut response = (route.callback)(&request, response).await;
+          println!("Callback executed ({request_id})");
 
-          if let Err(error) = request.respond(&response).await {
+          if let Err(error) = connection.send_response(&mut response).await {
             eprintln!(
               "Failed to serve {} route \"{}\": {error}",
               request.http_request.method, request.http_request.path
             );
           };
+
+          println!("Finished sending response ({request_id})");
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
 
           response.status_code = http::status_codes::StatusCode::Status404;
-          if let Err(error) = request.respond(&response).await {
+          if let Err(error) = connection.send_response(&mut response).await {
             eprintln!(
               "Failed to send 404 for {request_method} request for route {request_path}: {error}"
             );
@@ -188,7 +190,8 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(stream, request_id).await;
+      callback(connection.stream, request_id).await;
+      println!("Closed connection {request_id}")
     };
   }
 }

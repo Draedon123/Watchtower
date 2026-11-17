@@ -1,5 +1,7 @@
+pub mod body;
 pub mod client;
 pub mod header;
+pub mod http_connection;
 pub mod method;
 pub mod request;
 pub mod response;
