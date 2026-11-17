@@ -5,7 +5,7 @@ import { currentTime_ms } from "./dateTime";
 
 const WATCHTOWER_ADDRESS = dev
   ? "http://127.0.0.1:9824"
-  : "http://watchtowerapi.draedon.xyz";
+  : "https://watchtowerapi.draedon.xyz";
 
 type ConnectionStatus = {
   disconnectedSince: number | null;
