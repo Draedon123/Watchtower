@@ -42,7 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
       match machine {
         Some(machine) => println!("Successfully unregistered {machine} (id: {request_id})"),
-        None => println!("Failed to unregister machine with id: {request_id}"),
+        // request was not associated with a machine
+        None => {}
       };
     }
   });
