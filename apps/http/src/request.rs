@@ -20,7 +20,7 @@ impl Request {
       method: HTTPMethod::Get(),
       path: Url::new(""),
       headers: Headers::new(),
-      body: Body::new(),
+      body: Body::None,
     }
   }
 
@@ -84,12 +84,12 @@ impl Request {
       };
 
       if let Ok(content) = String::from_utf8(content) {
-        Body { content }
+        Body::Fixed(content)
       } else {
         return Err(String::from("Failed to read content from request"));
       }
     } else {
-      Body::new()
+      Body::None
     };
 
     let request = Request {

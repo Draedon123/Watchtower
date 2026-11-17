@@ -98,7 +98,6 @@ impl<'a> Server<'a> {
     request_id: u64,
   ) {
     let mut connection = HTTPConnection::new(stream);
-    println!("Received request {request_id}");
 
     loop {
       let mut http_request = match Request::read_from_buffer(&mut connection.stream).await {
@@ -131,7 +130,7 @@ impl<'a> Server<'a> {
         None => false,
       };
 
-      println!("Received {request_method} request for {request_path} ({request_id})");
+      println!("Received {request_method} request for {request_path}");
 
       let routes = &routes.routes;
       let route = routes.iter().find(|route| {
@@ -161,7 +160,6 @@ impl<'a> Server<'a> {
           response.headers = default_response_headers.clone();
 
           let mut response = (route.callback)(&request, response).await;
-          println!("Callback executed ({request_id})");
 
           if let Err(error) = connection.send_response(&mut response).await {
             eprintln!(
@@ -169,8 +167,6 @@ impl<'a> Server<'a> {
               request.http_request.method, request.http_request.path
             );
           };
-
-          println!("Finished sending response ({request_id})");
         }
         None => {
           println!("Route not found. Method: {request_method}, Path: {request_path}",);
@@ -191,7 +187,6 @@ impl<'a> Server<'a> {
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
       callback(connection.stream, request_id).await;
-      println!("Closed connection {request_id}")
     };
   }
 }

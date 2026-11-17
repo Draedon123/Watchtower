@@ -1,5 +1,5 @@
-use http::header::Headers;
 use http::response::Response;
+use http::{body::Body, header::Headers};
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -102,17 +102,18 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         let machine = request.slugs.get("machine").unwrap();
         // TODO: optimise
-        let keys = if request.http_request.body.content.is_empty() {
+        let body = request.http_request.body.to_string();
+        let keys = if body.is_empty() {
           match data.list_machine_keys(machine) {
             Ok(data) => data,
             Err(error) => {
               response.status_code = error.get_http_error_code();
-              response.body.content = error.to_string();
+              response.body = Body::from(error.to_string());
               return response;
             }
           }
         } else {
-          request.http_request.body.content.lines().collect()
+          body.lines().collect()
         };
 
         let mut serialised_data = String::new();
@@ -131,7 +132,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
 
         response.status_code = StatusCode::Status200;
-        response.body.content = serialised_data;
+        response.body = Body::from(serialised_data);
         response
       })
     },
@@ -147,14 +148,16 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
       Box::pin(async move {
         {
           response.status_code = StatusCode::Status200;
-          response.body.content = data
-            .read()
-            .await
-            .list_machines()
-            .iter()
-            .map(|string| string.as_str())
-            .collect::<Vec<_>>()
-            .join("\n");
+          response.body = Body::from(
+            data
+              .read()
+              .await
+              .list_machines()
+              .iter()
+              .map(|string| string.as_str())
+              .collect::<Vec<_>>()
+              .join("\n"),
+          );
 
           response
         }
@@ -206,7 +209,8 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         return response;
       };
 
-      let content: Vec<_> = request.http_request.body.content.lines().collect();
+      let body = request.http_request.body.to_string();
+      let content: Vec<_> = body.lines().collect();
       let machine = request.slugs.get("machine").unwrap();
 
       response.status_code = StatusCode::Status200;
@@ -243,15 +247,16 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let data = data.read().await;
 
         let key = request.slugs.get("key").unwrap();
+        let body = request.http_request.body.to_string();
         // TODO: optimise
-        let machines: Vec<_> = if request.http_request.body.content.is_empty() {
+        let machines: Vec<_> = if body.is_empty() {
           data
             .list_machines()
             .iter()
             .map(|machine| &machine[..])
             .collect()
         } else {
-          request.http_request.body.content.lines().collect()
+          body.lines().collect()
         };
 
         let mut serialised_data = String::new();
@@ -270,7 +275,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
 
         response.status_code = StatusCode::Status200;
-        response.body.content = serialised_data;
+        response.body = Body::from(serialised_data);
         response
       })
     },

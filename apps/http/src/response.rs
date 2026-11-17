@@ -11,7 +11,7 @@ impl Response {
     Response {
       headers: Headers::new(),
       status_code: StatusCode::Unknown(0),
-      body: Body::new(),
+      body: Body::None,
     }
   }
 

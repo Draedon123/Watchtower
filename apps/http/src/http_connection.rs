@@ -15,10 +15,7 @@ impl HTTPConnection {
   }
 
   pub async fn send_request(&mut self, request: &mut Request) -> Result<(), String> {
-    request
-      .headers
-      .set_header("Content-Length", &request.body.content.len().to_string())
-      .set_header("Content-Type", "text/plain; charset=utf-8");
+    request.body.set_headers(&mut request.headers);
 
     if let Err(error) = self
       .stream
@@ -40,12 +37,8 @@ impl HTTPConnection {
   }
 
   pub async fn send_response(&mut self, response: &mut Response) -> Result<(), String> {
-    response
-      .headers
-      .set_header("Content-Length", &response.body.content.len().to_string())
-      .set_header("Content-Type", "text/plain; charset=utf-8");
+    response.body.set_headers(&mut response.headers);
 
-    println!("Writing: {}", response.serialise_header());
     if let Err(_) = self
       .stream
       .write_all(response.serialise_header().as_bytes())
@@ -54,11 +47,9 @@ impl HTTPConnection {
       return Err(String::from("Failed to write content to TcpStream"));
     };
 
-    println!("Writing: {}", response.body.content);
     if let Err(_) = response.body.write(&mut self.stream).await {
       return Err(String::from("Failed to write content to TcpStream"));
     };
-    println!("[END] write");
 
     Ok(())
   }

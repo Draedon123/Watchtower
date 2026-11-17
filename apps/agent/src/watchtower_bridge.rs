@@ -1,4 +1,4 @@
-use http::{client::Client, method::HTTPMethod};
+use http::{body::Body, client::Client, method::HTTPMethod};
 use watchtower_server::data::DataEntry;
 
 use crate::config::Config;
@@ -32,7 +32,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
     }
   }
 
-  request.body.content = serialised_data;
+  request.body = Body::from(serialised_data);
   http_client.send_request(&mut request).await?;
 
   Ok(())
