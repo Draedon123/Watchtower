@@ -2,7 +2,7 @@
 
 Software to monitor multiple Linux machines, built with Rust and SvelteKit. Consists of an agent that runs on each machine that communicates with a central server, which can then be queried and interfaced through a webpage.
 
-Go check out an example deployment [here](http://watchtower.draedon.xyz)!
+Go check out an example deployment [here](https://watchtower.draedon.xyz)!
 
 # Usage
 
@@ -32,7 +32,7 @@ Note: the agent only runs on Linux devices
 ### Web Interface
 
 1. `cd` into `apps/web`
-2. Change the server address in `apps/web/src/lib/request.svelte.ts` to match the address and port of the server. This defaults to `http://127.0.0.1:9824` if in a dev environment (e.g., if the webpage is hosted with `pnpm dev`) and defaults to `http://watchtowerapi.draedon.xyz` if in production
+2. Change the server address in `apps/web/src/lib/request.svelte.ts` to match the address and port of the server. This defaults to `http://127.0.0.1:9824` if in a dev environment (e.g., if the webpage is hosted with `pnpm dev`) and defaults to `https://watchtowerapi.draedon.xyz` if in production
 3. Run `pnpm i && pnpm build`
 4. Locate your built webpage at `apps/web/build`
 
