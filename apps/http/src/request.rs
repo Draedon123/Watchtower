@@ -15,7 +15,7 @@ pub struct Request {
 }
 
 impl Request {
-  pub fn new() -> Request {
+  pub fn new() -> Self {
     Request {
       method: HTTPMethod::Get(),
       path: Url::new(""),

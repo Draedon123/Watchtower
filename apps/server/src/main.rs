@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn authenticate(request: &ServerRequest<'_>, server_password: &str) -> bool {
+fn authenticate(request: &ServerRequest, server_password: &str) -> bool {
   let submitted_password = match request.http_request.headers.get_header("Authorization") {
     Some(password) => password,
     None => &String::new(),
@@ -63,7 +63,7 @@ fn authenticate(request: &ServerRequest<'_>, server_password: &str) -> bool {
 }
 
 fn respond_if_unauthenticated(
-  request: &ServerRequest<'_>,
+  request: &ServerRequest,
   response: &mut Response,
   server_password: &str,
 ) -> bool {
@@ -102,7 +102,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         let machine = request.slugs.get("machine").unwrap();
         // TODO: optimise
-        let body = request.http_request.body.to_string();
+        let body = request.http_request.body.utf8();
         let keys = if body.is_empty() {
           match data.list_machine_keys(machine) {
             Ok(data) => data,
@@ -209,7 +209,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         return response;
       };
 
-      let body = request.http_request.body.to_string();
+      let body = request.http_request.body.utf8();
       let content: Vec<_> = body.lines().collect();
       let machine = request.slugs.get("machine").unwrap();
 
@@ -247,7 +247,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let data = data.read().await;
 
         let key = request.slugs.get("key").unwrap();
-        let body = request.http_request.body.to_string();
+        let body = request.http_request.body.utf8();
         // TODO: optimise
         let machines: Vec<_> = if body.is_empty() {
           data

@@ -9,8 +9,8 @@ use tokio::{
   task::JoinSet,
 };
 
-pub struct ServerRequest<'a> {
-  pub http_request: &'a mut Request,
+pub struct ServerRequest {
+  pub http_request: Request,
   pub slugs: HashMap<String, String>,
   pub request_id: u64,
 }
@@ -28,7 +28,7 @@ pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type OnConnectionClose = Arc<dyn Fn(TcpStream, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
-  pub fn new(config: &'a Config) -> Result<Server<'a>, Box<dyn std::error::Error>> {
+  pub fn new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
     let server = Server {
       routes: Arc::new(Routes::new()),
       config,
@@ -100,7 +100,7 @@ impl<'a> Server<'a> {
     let mut connection = HTTPConnection::new(stream);
 
     loop {
-      let mut http_request = match Request::read_from_buffer(&mut connection.stream).await {
+      let http_request = match Request::read_from_buffer(&mut connection.stream).await {
         Ok(Some(request)) => request,
         Ok(None) => break,
         Err(error) => {
@@ -149,7 +149,7 @@ impl<'a> Server<'a> {
       });
 
       let request = ServerRequest {
-        http_request: &mut http_request,
+        http_request,
         slugs: request_slugs,
         request_id,
       };

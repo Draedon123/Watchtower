@@ -19,7 +19,7 @@ pub struct Routes {
 }
 
 impl Routes {
-  pub fn new() -> Routes {
+  pub fn new() -> Self {
     Routes { routes: Vec::new() }
   }
 

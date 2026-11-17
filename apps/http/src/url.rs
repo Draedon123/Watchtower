@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+#[derive(Clone)]
 pub struct Url {
   pub raw: String,
 }
