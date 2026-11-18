@@ -33,7 +33,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
   }
 
   request.body = Body::from(serialised_data);
-  http_client.send_request(&mut request).await?;
+  http_client.send_request_rude(&mut request).await?;
 
   Ok(())
 }

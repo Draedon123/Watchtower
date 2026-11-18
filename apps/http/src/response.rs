@@ -1,13 +1,11 @@
-use tokio::{
-  io::{AsyncBufReadExt, BufReader},
-  net::TcpStream,
-};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 use crate::{
   body::Body, header::Headers, http_parser::parse_http_headers_and_content,
   http_status_codes::HttpStatusCode,
 };
 
+#[derive(Debug)]
 pub struct Response {
   pub headers: Headers,
   pub status_code: HttpStatusCode,
@@ -32,9 +30,10 @@ impl Response {
     )
   }
 
-  pub async fn read_from_buffer(
-    buffer: &mut BufReader<TcpStream>,
-  ) -> Result<Self, String> {
+  pub async fn read_from_buffer<R>(buffer: &mut R) -> Result<Self, String>
+  where
+    R: AsyncBufRead + Unpin,
+  {
     let mut start_line = String::new();
 
     buffer

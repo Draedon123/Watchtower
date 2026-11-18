@@ -79,9 +79,20 @@ impl Client {
   pub async fn send_request(
     &mut self,
     request: &mut Request,
-  ) -> Result<(), String> {
+  ) -> Result<Response, String> {
     match self.connection.as_mut() {
       Some(connection) => Ok(connection.send_request(request).await?),
+      None => Err(String::from("Could not send request: disconnected")),
+    }
+  }
+
+  /// Does not wait for or read response
+  pub async fn send_request_rude(
+    &mut self,
+    request: &mut Request,
+  ) -> Result<(), String> {
+    match self.connection.as_mut() {
+      Some(connection) => Ok(connection.send_request_rude(request).await?),
       None => Err(String::from("Could not send request: disconnected")),
     }
   }

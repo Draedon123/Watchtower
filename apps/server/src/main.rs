@@ -224,7 +224,8 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         Err(_) => {
           return invalid_body_error(response);
         }
-      };      let content: Vec<_> = body.lines().collect();
+      };
+      let content: Vec<_> = body.lines().collect();
       let machine = request.slugs.get("machine").unwrap();
 
       response.status_code = HttpStatusCode::Status200;

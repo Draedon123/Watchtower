@@ -1,5 +1,5 @@
 use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
+  io::{AsyncWriteExt, BufReader, BufWriter},
   net::{
     TcpStream,
     tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -25,6 +25,15 @@ impl HttpConnection {
   pub async fn send_request(
     &mut self,
     request: &mut Request,
+  ) -> Result<Response, String> {
+    self.send_request_rude(request).await?;
+    Response::read_from_buffer(&mut self.reader).await
+  }
+
+  /// Does not wait for or read response
+  pub async fn send_request_rude(
+    &mut self,
+    request: &mut Request,
   ) -> Result<(), String> {
     request.body.set_headers(&mut request.headers);
 
@@ -45,14 +54,6 @@ impl HttpConnection {
       .flush()
       .await
       .map_err(|error| format!("Failed to flush buffer: {error}"))?;
-
-    // TODO: read in chunks into a Vec
-    let mut response = [0; 4096];
-    self
-      .reader
-      .read(&mut response)
-      .await
-      .map_err(|error| format!("Failed to read response: {error}"))?;
 
     Ok(())
   }

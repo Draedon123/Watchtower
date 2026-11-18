@@ -1,10 +1,12 @@
-use std::pin::Pin;
+use std::{
+  fmt::{Debug, Pointer},
+  pin::Pin,
+};
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_stream::{Stream, StreamExt};
 
 use crate::header::Headers;
-
 pub enum Body {
   Fixed(String),
   Binary(Vec<u8>),
@@ -84,6 +86,17 @@ impl Body {
       }),
       Self::Chunked(_) => todo!(),
       Self::None => Ok(""),
+    }
+  }
+}
+
+impl Debug for Body {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Fixed(data) => data.fmt(f),
+      Self::Binary(data) => data.fmt(f),
+      Self::Chunked(data) => data.fmt(f),
+      Self::None => write!(f, "None"),
     }
   }
 }
