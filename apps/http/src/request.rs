@@ -4,8 +4,7 @@ use crate::http_method::HttpMethod;
 use crate::http_parser::parse_http_headers_and_content;
 use crate::url::Url;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 pub struct Request {
   pub method: HttpMethod,
@@ -36,9 +35,10 @@ impl Request {
     )
   }
 
-  pub async fn read_from_buffer(
-    buffer: &mut BufReader<TcpStream>,
-  ) -> Result<Self, String> {
+  pub async fn read_from_buffer<R>(buffer: &mut R) -> Result<Self, String>
+  where
+    R: AsyncBufRead + Unpin,
+  {
     let mut start_line = String::new();
 
     buffer

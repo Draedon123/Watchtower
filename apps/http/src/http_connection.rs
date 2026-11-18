@@ -1,21 +1,25 @@
 use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt, BufReader},
-  net::TcpStream,
+  io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
+  net::{
+    TcpStream,
+    tcp::{OwnedReadHalf, OwnedWriteHalf},
+  },
 };
 
 use crate::{request::Request, response::Response};
 
 pub struct HttpConnection {
-  pub stream: BufReader<TcpStream>,
+  reader: BufReader<OwnedReadHalf>,
+  writer: BufWriter<OwnedWriteHalf>,
 }
 
 impl HttpConnection {
   pub fn new(stream: TcpStream) -> Self {
-    let buffer_reader = BufReader::new(stream);
+    let (read, write) = stream.into_split();
+    let reader = BufReader::new(read);
+    let writer = BufWriter::new(write);
 
-    Self {
-      stream: buffer_reader,
-    }
+    Self { reader, writer }
   }
 
   pub async fn send_request(
@@ -25,25 +29,21 @@ impl HttpConnection {
     request.body.set_headers(&mut request.headers);
 
     self
-      .stream
+      .writer
       .write_all(request.serialise_header().as_bytes())
       .await
-      .map_err(|error| {
-        format!("Failed to write content to TcpStream: {error}")
-      })?;
+      .map_err(|error| format!("Failed to write content to buffer: {error}"))?;
 
     request
       .body
-      .write(self.stream.get_mut())
+      .write(&mut self.writer)
       .await
-      .map_err(|error| {
-        format!("Failed to write content to TcpStream: {error}")
-      })?;
+      .map_err(|error| format!("Failed to write content to buffer: {error}"))?;
 
     // TODO: read in chunks into a Vec
     let mut response = [0; 4096];
     self
-      .stream
+      .reader
       .read(&mut response)
       .await
       .map_err(|error| format!("Failed to read response: {error}"))?;
@@ -58,19 +58,35 @@ impl HttpConnection {
     response.body.set_headers(&mut response.headers);
 
     self
-      .stream
+      .writer
       .write_all(response.serialise_header().as_bytes())
       .await
-      .map_err(|error| {
-        format!("Failed to write header to TcpStream: {error}")
-      })?;
+      .map_err(|error| format!("Failed to write header to buffer: {error}"))?;
 
     response
       .body
-      .write(self.stream.get_mut())
+      .write(&mut self.writer)
       .await
-      .map_err(|error| format!("Failed to write body to TcpStream: {error}"))?;
+      .map_err(|error| format!("Failed to write body to buffer: {error}"))?;
 
     Ok(())
+  }
+
+  pub fn into_stream(self) -> TcpStream {
+    self
+      .reader
+      .into_inner()
+      .reunite(self.writer.into_inner())
+      // .reunite should only fail if the two halves were from different sockets, which should be
+      // impossible, given the private .reader and .writer fields
+      .unwrap()
+  }
+
+  pub fn get_reader(&mut self) -> &mut BufReader<OwnedReadHalf> {
+    &mut self.reader
+  }
+
+  pub fn get_writer(&mut self) -> &mut BufWriter<OwnedWriteHalf> {
+    &mut self.writer
   }
 }

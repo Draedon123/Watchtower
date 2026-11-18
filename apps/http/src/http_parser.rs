@@ -1,14 +1,14 @@
-use tokio::{
-  io::{AsyncBufReadExt, AsyncReadExt, BufReader},
-  net::TcpStream,
-};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt};
 
 use crate::{body::Body, header::Headers};
 
 /// Assumes the Start Line has been read already
-pub async fn parse_http_headers_and_content(
-  buffer_reader: &mut BufReader<TcpStream>,
-) -> Result<(Headers, Body), String> {
+pub async fn parse_http_headers_and_content<R>(
+  buffer_reader: &mut R,
+) -> Result<(Headers, Body), String>
+where
+  R: AsyncBufRead + Unpin,
+{
   let mut headers = Headers::new();
   let mut line_number = 2;
 
@@ -22,6 +22,7 @@ pub async fn parse_http_headers_and_content(
     line_number += 1;
 
     // reached EOF
+    // TODO don't error out when connection closed
     if bytes_read == 0 {
       return Err(String::from("Connection closed by peer"));
     }

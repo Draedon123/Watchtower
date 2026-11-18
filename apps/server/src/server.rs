@@ -103,7 +103,7 @@ impl<'a> Server<'a> {
 
     loop {
       let http_request =
-        match Request::read_from_buffer(&mut connection.stream).await {
+        match Request::read_from_buffer(connection.get_reader()).await {
           Ok(request) => request,
           Err(error) => {
             eprintln!("Failed to read incoming TcpStream: {error}");
@@ -192,7 +192,7 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(connection.stream.into_inner(), request_id).await;
+      callback(connection.into_stream(), request_id).await;
     };
   }
 }
