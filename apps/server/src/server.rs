@@ -27,7 +27,7 @@ pub struct Server<'a> {
 
 pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type OnConnectionClose =
-  Arc<dyn Fn(TcpStream, u64) -> OnConnectionCloseFuture + Send + Sync>;
+  Arc<dyn Fn(HttpConnection, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
