@@ -55,10 +55,10 @@ impl Route {
 
     split_url.iter().for_each(|section| {
       if section.starts_with("[") && section.ends_with("]") {
-        let slug_name = section[1..(section.len() - 1)].to_string();
+        let slug_name = section[1..(section.len() - 1)].to_owned();
         path.push(URLSection::Slug(slug_name));
       } else {
-        path.push(URLSection::Literal(section.to_string()));
+        path.push(URLSection::Literal((*section).to_owned()));
       };
     });
 
@@ -81,7 +81,7 @@ impl Route {
             }
           }
           URLSection::Slug(slug) => {
-            slugs.insert(slug.clone(), split_url[i].to_string());
+            slugs.insert(slug.clone(), split_url[i].to_owned());
           }
         }
       }

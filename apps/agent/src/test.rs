@@ -99,7 +99,7 @@ impl Updatable for TestMemoryUsage {
 impl Bridge for TestMemoryUsage {
   fn get_data(&mut self) -> Result<(String, DataEntry), String> {
     Ok((
-      self.memory_type.watchtower_path().to_string(),
+      self.memory_type.watchtower_path().to_owned(),
       DataEntry::from((self.free, self.max)),
     ))
   }

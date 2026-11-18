@@ -96,6 +96,6 @@ impl From<String> for Body {
 
 impl From<&str> for Body {
   fn from(value: &str) -> Self {
-    Self::Fixed(value.to_string())
+    Self::Fixed(value.to_owned())
   }
 }

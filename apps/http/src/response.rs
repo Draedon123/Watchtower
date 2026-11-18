@@ -58,10 +58,10 @@ impl Response {
     split.next();
     let status_code = split
       .next()
-      .ok_or(String::from("Malformed start line: \"{line}\""))?;
+      .ok_or(format!("Malformed start line: \"{line}\""))?;
     let status_code = status_code
       .parse::<u16>()
-      .map_err(|_| String::from("Malformed start line: \"{line}\""))?;
+      .map_err(|_| format!("Malformed start line: \"{line}\""))?;
     let status_code = HttpStatusCode::from(status_code);
 
     Ok(status_code)

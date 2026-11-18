@@ -163,9 +163,9 @@ impl Data {
   ) -> Result<(), String> {
     let entry = self
       .data_by_machine
-      .entry(machine.to_string())
+      .entry(machine.to_owned())
       .or_default()
-      .entry(data_key.to_string());
+      .entry(data_key.to_owned());
 
     let data_entry = DataEntry {
       data: data_value,
@@ -176,9 +176,9 @@ impl Data {
 
     self
       .data_by_key
-      .entry(data_key.to_string())
+      .entry(data_key.to_owned())
       .or_default()
-      .entry(machine.to_string())
+      .entry(machine.to_owned())
       .insert_entry(data_entry);
 
     Ok(())
@@ -192,9 +192,9 @@ impl Data {
     self
       .data_by_machine
       .get(machine)
-      .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+      .ok_or(DataResultError::MachineNotFound(machine.to_owned()))?
       .get(data_key)
-      .ok_or(DataResultError::KeyNotFound(data_key.to_string()))
+      .ok_or(DataResultError::KeyNotFound(data_key.to_owned()))
   }
 
   pub fn list_machines(&self) -> Vec<&String> {
@@ -206,7 +206,7 @@ impl Data {
       self
         .data_by_machine
         .get(machine)
-        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+        .ok_or(DataResultError::MachineNotFound(machine.to_owned()))?
         .keys()
         .map(|string| &string[..])
         .collect(),
@@ -214,7 +214,7 @@ impl Data {
   }
 
   pub fn register_machine(&mut self, request_id: u64, machine: &str) -> bool {
-    let machine = machine.to_string();
+    let machine = machine.to_owned();
 
     self.machine_by_id.insert(request_id, machine.clone());
 

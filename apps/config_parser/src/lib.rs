@@ -26,7 +26,7 @@ pub fn parse_args(
     } else if let Some(flag) = arg.strip_prefix("-") {
       flags.insert(flag.to_owned());
     } else {
-      rest.push(arg.to_string());
+      rest.push(arg.to_owned());
     }
 
     i += 1;

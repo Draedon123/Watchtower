@@ -8,7 +8,7 @@ pub struct Url {
 impl Url {
   pub fn new(url: &str) -> Self {
     Self {
-      raw: url.to_string(),
+      raw: url.to_owned(),
     }
   }
 
@@ -75,7 +75,7 @@ impl Url {
     let queries = query.split(",").filter_map(|query| {
       let (key, value) = query.split_once("=")?;
 
-      Some((key.to_string(), value.to_string()))
+      Some((key.to_owned(), value.to_owned()))
     });
 
     queries.collect()
@@ -83,7 +83,7 @@ impl Url {
 
   fn protocol_and_rest(&self) -> (Option<String>, String) {
     match self.raw.split_once("://") {
-      Some((protocol, rest)) => (Some(protocol.to_string()), rest.to_string()),
+      Some((protocol, rest)) => (Some(protocol.to_owned()), rest.to_owned()),
       None => (None, self.raw.clone()),
     }
   }
@@ -92,7 +92,7 @@ impl Url {
     let rest = self.protocol_and_rest().1;
     match rest.split_once("/") {
       Some((host_and_port, path_and_query)) => {
-        (host_and_port.to_string(), Some(path_and_query.to_string()))
+        (host_and_port.to_owned(), Some(path_and_query.to_owned()))
       }
       None => (rest, None),
     }
@@ -101,8 +101,8 @@ impl Url {
   fn host_and_port(&self) -> (String, Option<String>) {
     let split = self.host_port_and_path_query().0;
     match split.split_once(":") {
-      Some((host, port)) => (host.to_string(), Some(port.to_string())),
-      None => (split.to_string(), None),
+      Some((host, port)) => (host.to_owned(), Some(port.to_owned())),
+      None => (split.to_owned(), None),
     }
   }
 
@@ -113,8 +113,8 @@ impl Url {
     };
 
     match split.split_once("?") {
-      Some((path, query)) => (path.to_string(), query.to_string()),
-      None => (split.to_string(), String::new()),
+      Some((path, query)) => (path.to_owned(), query.to_owned()),
+      None => (split.to_owned(), String::new()),
     }
   }
 

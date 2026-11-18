@@ -29,7 +29,7 @@ impl Headers {
   pub fn set_header(&mut self, key: &str, value: &str) -> &mut Self {
     self
       .headers
-      .insert(key.to_string().to_lowercase(), value.to_string());
+      .insert(key.to_owned().to_lowercase(), value.to_owned());
 
     self
   }

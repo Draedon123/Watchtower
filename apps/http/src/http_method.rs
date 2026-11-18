@@ -18,7 +18,7 @@ impl From<&str> for HttpMethod {
       "PUT" => Self::Put(),
       "DELETE" => Self::Delete(),
       "PATCH" => Self::Patch(),
-      _ => Self::Unknown(value.to_string()),
+      _ => Self::Unknown(value.to_owned()),
     }
   }
 }
