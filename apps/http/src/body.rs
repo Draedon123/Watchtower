@@ -13,6 +13,7 @@ pub enum Body {
 }
 
 impl Body {
+  /// Does not flush buffer
   pub async fn write<W>(&mut self, stream: &mut W) -> Result<(), String>
   where
     W: AsyncWrite + Unpin,
@@ -47,8 +48,6 @@ impl Body {
           .write_all(b"0\r\n\r\n")
           .await
           .map_err(|error| error.to_string())?;
-
-        stream.flush().await.map_err(|error| error.to_string())?;
 
         Ok(())
       }

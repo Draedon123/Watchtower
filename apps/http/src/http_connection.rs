@@ -40,6 +40,12 @@ impl HttpConnection {
       .await
       .map_err(|error| format!("Failed to write content to buffer: {error}"))?;
 
+    self
+      .writer
+      .flush()
+      .await
+      .map_err(|error| format!("Failed to flush buffer: {error}"))?;
+
     // TODO: read in chunks into a Vec
     let mut response = [0; 4096];
     self
@@ -68,6 +74,12 @@ impl HttpConnection {
       .write(&mut self.writer)
       .await
       .map_err(|error| format!("Failed to write body to buffer: {error}"))?;
+
+    self
+      .writer
+      .flush()
+      .await
+      .map_err(|error| format!("Failed to flush buffer: {error}"))?;
 
     Ok(())
   }
