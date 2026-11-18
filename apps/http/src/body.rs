@@ -112,3 +112,9 @@ impl From<&str> for Body {
     Self::Fixed(value.to_owned())
   }
 }
+
+impl From<Vec<u8>> for Body {
+  fn from(value: Vec<u8>) -> Self {
+    Self::Binary(value)
+  }
+}
