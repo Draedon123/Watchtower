@@ -80,7 +80,7 @@ impl<'a> Server<'a> {
 
   pub fn set_on_connection_close<F, Fut>(&mut self, callback: F)
   where
-    F: Fn(TcpStream, u64) -> Fut + Send + Sync + 'static,
+    F: Fn(HttpConnection, u64) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
   {
     self.on_connection_close = Some(Arc::new(move |stream, request_id| {
@@ -192,7 +192,7 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(connection.into_stream(), request_id).await;
+      callback(connection, request_id).await;
     };
   }
 }
