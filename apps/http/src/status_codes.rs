@@ -1,5 +1,6 @@
 macro_rules! define_status_codes {
   ($($code: literal => $variant: ident: $message:literal),+ $(,)?) => {
+    #[derive(Debug, PartialEq)]
     pub enum StatusCode {
       $($variant,)+
 

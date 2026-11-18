@@ -1,9 +1,9 @@
 use crate::body::Body;
 use crate::header::Headers;
+use crate::http_parser::parse_http_headers_and_content;
 use crate::method::HTTPMethod;
 use crate::url::Url;
 
-use tokio::io::AsyncReadExt;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpStream;
 
@@ -36,61 +36,16 @@ impl Request {
     )
   }
 
-  pub async fn read_from_buffer(stream: &mut TcpStream) -> Result<Option<Request>, String> {
-    let mut buffer_reader = BufReader::new(stream);
-    let mut lines = Vec::<String>::new();
-    let mut headers = Headers::new();
+  pub async fn read_from_buffer(buffer: &mut BufReader<TcpStream>) -> Result<Request, String> {
+    let mut start_line = String::new();
 
-    let mut i = 1;
-    loop {
-      let mut line = String::new();
+    buffer
+      .read_line(&mut start_line)
+      .await
+      .map_err(|error| format!("Failed to read start-line: {error}"))?;
 
-      if let Err(_) = buffer_reader.read_line(&mut line).await {
-        return Err(format!("Could not read line {i}"));
-      };
-
-      if line == "\r\n" || line == "\n" || line.is_empty() {
-        break;
-      }
-
-      if i != 1 {
-        if let Err(_) = headers.add_header_line(&line) {
-          eprintln!("Malformed header received: {line}");
-        };
-      };
-
-      lines.push(line.trim().to_string());
-      i += 1;
-    }
-
-    if lines.is_empty() {
-      return Ok(None);
-    };
-
-    let start_line: Vec<_> = lines[0].split(" ").collect();
-
-    let method = HTTPMethod::from(start_line[0]);
-    let path = Url::new(start_line[1]);
-
-    let content_length = headers
-      .get_header("Content-Length")
-      .map(|length| length.parse::<usize>().unwrap_or(0))
-      .unwrap_or(0);
-
-    let mut content = vec![0; content_length];
-    let body = if content_length > 0 {
-      if let Err(_) = buffer_reader.read_exact(&mut content).await {
-        return Err(String::from("Failed to read content from request"));
-      };
-
-      if let Ok(content) = String::from_utf8(content) {
-        Body::Fixed(content)
-      } else {
-        return Err(String::from("Failed to read content from request"));
-      }
-    } else {
-      Body::None
-    };
+    let (headers, body) = parse_http_headers_and_content(buffer).await?;
+    let (method, path) = Request::parse_start_line(&start_line)?;
 
     let request = Request {
       method,
@@ -99,6 +54,33 @@ impl Request {
       body,
     };
 
-    Ok(Some(request))
+    Ok(request)
+  }
+
+  fn parse_start_line(line: &str) -> Result<(HTTPMethod, Url), String> {
+    let mut split = line.split(" ");
+    let method = split
+      .next()
+      .ok_or(format!("Malformed start line: \"{line}\""))
+      .map(|method| HTTPMethod::from(method))?;
+    let path = split
+      .next()
+      .ok_or(format!("Malformed start line: \"{line}\""))
+      .map(Url::new)?;
+
+    Ok((method, path))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn start_lines() {
+    assert_eq!(
+      Request::parse_start_line("POST /users HTTP/1.1"),
+      Ok((HTTPMethod::Post(), Url::new("/users")))
+    );
   }
 }

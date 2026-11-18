@@ -1,17 +1,21 @@
 use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt},
+  io::{AsyncReadExt, AsyncWriteExt, BufReader},
   net::TcpStream,
 };
 
 use crate::{request::Request, response::Response};
 
 pub struct HTTPConnection {
-  pub stream: TcpStream,
+  pub stream: BufReader<TcpStream>,
 }
 
 impl HTTPConnection {
-  pub fn new(stream: TcpStream) -> HTTPConnection {
-    HTTPConnection { stream }
+  pub fn new(stream: TcpStream) -> Self {
+    let buffer_reader = BufReader::new(stream);
+
+    HTTPConnection {
+      stream: buffer_reader,
+    }
   }
 
   pub async fn send_request(&mut self, request: &mut Request) -> Result<(), String> {
@@ -25,7 +29,7 @@ impl HTTPConnection {
       return Err(format!("Failed to write content to TcpStream: {error}"));
     };
 
-    if let Err(error) = request.body.write(&mut self.stream).await {
+    if let Err(error) = request.body.write(self.stream.get_mut()).await {
       return Err(format!("Failed to write content to TcpStream: {error}"));
     };
 
@@ -47,7 +51,7 @@ impl HTTPConnection {
       return Err(String::from("Failed to write content to TcpStream"));
     };
 
-    if let Err(_) = response.body.write(&mut self.stream).await {
+    if let Err(_) = response.body.write(self.stream.get_mut()).await {
       return Err(String::from("Failed to write content to TcpStream"));
     };
 
