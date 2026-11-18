@@ -16,7 +16,7 @@ impl Url {
     protocol: Option<&str>,
     host: &str,
     port: &Option<u16>,
-    path: &Option<String>,
+    path: &Option<&str>,
     query: &Option<HashMap<String, String>>,
   ) -> Self {
     let mut raw = String::new();
@@ -33,8 +33,8 @@ impl Url {
     }
 
     if let Some(path) = path {
-      raw.push_str(path);
-    }
+      raw.push_str(path)
+    };
 
     if let Some(query) = query
       && !query.is_empty()
@@ -49,111 +49,106 @@ impl Url {
     Self::new(&raw)
   }
 
-  pub fn protocol(&self) -> Result<String, ()> {
-    self.protocol_and_rest()?.0.ok_or(())
+  pub fn protocol(&self) -> Option<String> {
+    self.protocol_and_rest().0
   }
 
-  pub fn host(&self) -> Result<String, ()> {
-    Ok(self.host_and_port()?.0)
+  pub fn host(&self) -> String {
+    self.host_and_port().0
   }
 
-  pub fn port(&self) -> Result<u16, ()> {
-    match self.host_and_port()?.1 {
-      Some(port) => port.parse::<u16>().map_err(|_| ()),
-      None => Err(()),
+  pub fn port(&self) -> Result<u16, String> {
+    match self.host_and_port().1 {
+      Some(port) => port
+        .parse::<u16>()
+        .map_err(|error| format!("Could not parse \"{port}\" as u16: {error}")),
+      None => Err(String::from("Could not find port in url")),
     }
   }
 
-  pub fn path(&self) -> Result<String, ()> {
-    Ok(format!("/{}", self.path_and_query()?.0))
+  pub fn path(&self) -> String {
+    format!("/{}", self.path_and_query().0)
   }
 
-  pub fn query(&self) -> Result<HashMap<String, String>, ()> {
-    let query = self.path_and_query()?.1;
+  pub fn query(&self) -> HashMap<String, String> {
+    let query = self.path_and_query().1;
     let queries = query.split(",").filter_map(|query| {
       let (key, value) = query.split_once("=")?;
 
       Some((key.to_string(), value.to_string()))
     });
 
-    Ok(queries.collect())
+    queries.collect()
   }
 
-  fn protocol_and_rest(&self) -> Result<(Option<String>, String), ()> {
+  fn protocol_and_rest(&self) -> (Option<String>, String) {
     match self.raw.split_once("://") {
-      Some((protocol, rest)) => {
-        Ok((Some(protocol.to_string()), rest.to_string()))
-      }
-      None => Ok((None, self.raw.clone())),
+      Some((protocol, rest)) => (Some(protocol.to_string()), rest.to_string()),
+      None => (None, self.raw.clone()),
     }
   }
 
-  fn host_port_and_path_query(&self) -> Result<(String, Option<String>), ()> {
-    let rest = self.protocol_and_rest()?.1;
+  fn host_port_and_path_query(&self) -> (String, Option<String>) {
+    let rest = self.protocol_and_rest().1;
     match rest.split_once("/") {
       Some((host_and_port, path_and_query)) => {
-        Ok((host_and_port.to_string(), Some(path_and_query.to_string())))
+        (host_and_port.to_string(), Some(path_and_query.to_string()))
       }
-      None => Ok((rest, None)),
+      None => (rest, None),
     }
   }
 
-  fn host_and_port(&self) -> Result<(String, Option<String>), ()> {
-    let split = self.host_port_and_path_query()?.0;
+  fn host_and_port(&self) -> (String, Option<String>) {
+    let split = self.host_port_and_path_query().0;
     match split.split_once(":") {
-      Some((host, port)) => Ok((host.to_string(), Some(port.to_string()))),
-      None => Ok((split.to_string(), None)),
+      Some((host, port)) => (host.to_string(), Some(port.to_string())),
+      None => (split.to_string(), None),
     }
   }
 
-  fn path_and_query(&self) -> Result<(String, String), ()> {
-    let split = match self.host_port_and_path_query()?.1 {
+  fn path_and_query(&self) -> (String, String) {
+    let split = match self.host_port_and_path_query().1 {
       Some(string) => string,
-      None => return Ok((String::new(), String::new())),
+      None => return (String::new(), String::new()),
     };
 
     match split.split_once("?") {
-      Some((path, query)) => Ok((path.to_string(), query.to_string())),
-      None => Ok((split.to_string(), String::new())),
+      Some((path, query)) => (path.to_string(), query.to_string()),
+      None => (split.to_string(), String::new()),
     }
   }
 
   pub fn guess_port(&self) -> Option<u16> {
-    match self.protocol().ok()?.as_str() {
+    match self.protocol()?.as_str() {
       "http" => Some(80),
       _ => None,
     }
   }
 
-  pub fn percent_encode_mut(&mut self) -> Result<(), ()> {
-    self.raw = self.percent_encode()?;
-
-    Ok(())
+  pub fn percent_encode_mut(&mut self) {
+    self.raw = self.percent_encode();
   }
 
   /// Returns an Err(()) when the host cannot be determined from self.host()
-  pub fn percent_encode(&self) -> Result<String, ()> {
-    let host = self.host()?;
-    let path = self
-      .path()
-      .ok()
-      .map(|path| format!("/{}", Url::encode_uri_component(&path[1..])));
-    let query = self.query().ok().map(|query| {
-      query
-        .iter()
-        .map(|(key, value)| {
-          (
-            Url::encode_uri_component(key),
-            Url::encode_uri_component(value),
-          )
-        })
-        .collect()
-    });
+  pub fn percent_encode(&self) -> String {
+    let host = self.host();
+    let path = format!("/{}", Url::encode_uri_component(&self.path()[1..]));
+    let query: HashMap<String, String> = self
+      .query()
+      .iter()
+      .map(|(key, value)| {
+        (
+          Url::encode_uri_component(key),
+          Url::encode_uri_component(value),
+        )
+      })
+      .collect();
     let port = self.port().ok();
 
-    let new_url = Url::from_parts(None, &host, &port, &path, &query);
+    let new_url =
+      Url::from_parts(None, &host, &port, &Some(&path), &Some(query));
 
-    Ok(new_url.raw)
+    new_url.raw
   }
 
   pub fn percent_decode_mut(&mut self) -> Result<(), String> {
@@ -249,10 +244,10 @@ mod tests {
     let url = Url::new("http://foo:123/bar?a=b,c=d");
 
     assert_eq!(url.protocol().unwrap(), "http");
-    assert_eq!(url.host().unwrap(), "foo");
+    assert_eq!(url.host(), "foo");
     assert_eq!(url.port().unwrap(), 123);
 
-    let queries = url.query().unwrap();
+    let queries = url.query();
 
     assert_eq!(queries.get("a").unwrap(), "b");
     assert_eq!(queries.get("c").unwrap(), "d");
@@ -262,9 +257,9 @@ mod tests {
   fn minimal_url() {
     let url = Url::new("foo");
 
-    assert_matches!(url.protocol(), Err(()));
-    assert_eq!(url.host().unwrap(), "foo");
-    assert_eq!(url.query().unwrap().len(), 0);
+    assert_matches!(url.protocol(), None);
+    assert_eq!(url.host(), "foo");
+    assert_eq!(url.query().len(), 0);
   }
 
   #[test]
@@ -273,7 +268,7 @@ mod tests {
     let mut url = Url::new(string);
 
     println!("{:?}", url.raw.bytes());
-    url.percent_encode_mut().unwrap();
+    url.percent_encode_mut();
 
     assert_eq!(url.raw, "foo.com/%24bar%F0%9F%A5%80");
 

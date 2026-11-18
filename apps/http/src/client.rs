@@ -33,15 +33,13 @@ impl Client {
   ) -> Result<Request, String> {
     let url = Url::new(address);
 
-    if let Ok(protocol) = url.protocol()
+    if let Some(protocol) = url.protocol()
       && protocol != "http"
     {
       unimplemented!("Only HTTP requests are supported")
     };
 
-    let host = url
-      .host()
-      .map_err(|_| format!("Could not get host from address \"{address}\""))?;
+    let host = url.host();
     let port = url
       .port()
       .unwrap_or_else(|_| url.guess_port().unwrap_or(80));

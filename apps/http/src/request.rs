@@ -27,10 +27,7 @@ impl Request {
     format!(
       "{} {} HTTP/1.1\r\n{}\r\n",
       self.method,
-      self
-        .path
-        .percent_encode()
-        .unwrap_or_else(|_| self.path.raw.clone()),
+      self.path.percent_encode(),
       self.headers.serialise()
     )
   }
