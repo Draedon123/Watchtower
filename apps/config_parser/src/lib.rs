@@ -11,7 +11,7 @@ pub fn parse_args(
   while i < args.len() {
     let arg = &args[i];
 
-    if arg.starts_with("--") {
+    if let Some(key) = arg.strip_prefix("--") {
       let value_index = i + 1;
 
       if value_index >= args.len() {
@@ -22,9 +22,9 @@ pub fn parse_args(
       let value = args[value_index].clone();
       i += 1;
 
-      config_args.insert(arg[2..].to_string(), value);
-    } else if arg.starts_with("-") {
-      flags.insert(arg[1..].to_string());
+      config_args.insert(key.to_owned(), value);
+    } else if let Some(flag) = arg.strip_prefix("-") {
+      flags.insert(flag.to_owned());
     } else {
       rest.push(arg.to_string());
     }

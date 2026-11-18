@@ -64,3 +64,9 @@ impl Bridge for CpuUsage {
     ))
   }
 }
+
+impl Default for CpuUsage {
+  fn default() -> Self {
+    Self::new()
+  }
+}

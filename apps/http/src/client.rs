@@ -33,10 +33,10 @@ impl Client {
   ) -> Result<Request, String> {
     let url = Url::new(address);
 
-    if let Ok(protocol) = url.protocol() {
-      if protocol != "http" {
-        unimplemented!("Only HTTP requests are supported")
-      }
+    if let Ok(protocol) = url.protocol()
+      && protocol != "http"
+    {
+      unimplemented!("Only HTTP requests are supported")
     };
 
     let host = url
@@ -116,5 +116,11 @@ impl Client {
     self.connection = Some(HttpConnection::new(stream));
 
     Ok(())
+  }
+}
+
+impl Default for Client {
+  fn default() -> Self {
+    Self::new()
   }
 }

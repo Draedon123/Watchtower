@@ -36,13 +36,13 @@ impl Url {
       raw.push_str(path);
     }
 
-    if let Some(query) = query {
-      if query.len() > 0 {
-        raw.push('?');
+    if let Some(query) = query
+      && !query.is_empty()
+    {
+      raw.push('?');
 
-        for (key, value) in query {
-          raw.push_str(&format!("{}={}", key, value));
-        }
+      for (key, value) in query {
+        raw.push_str(&format!("{}={}", key, value));
       }
     }
 
@@ -70,7 +70,7 @@ impl Url {
 
   pub fn query(&self) -> Result<HashMap<String, String>, ()> {
     let query = self.path_and_query()?.1;
-    let queries = query.split(",").into_iter().filter_map(|query| {
+    let queries = query.split(",").filter_map(|query| {
       let (key, value) = query.split_once("=")?;
 
       Some((key.to_string(), value.to_string()))

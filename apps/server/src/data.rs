@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -163,7 +164,7 @@ impl Data {
     let entry = self
       .data_by_machine
       .entry(machine.to_string())
-      .or_insert(HashMap::new())
+      .or_default()
       .entry(data_key.to_string());
 
     let data_entry = DataEntry {
@@ -176,7 +177,7 @@ impl Data {
     self
       .data_by_key
       .entry(data_key.to_string())
-      .or_insert(HashMap::new())
+      .or_default()
       .entry(machine.to_string())
       .insert_entry(data_entry);
 
@@ -188,14 +189,12 @@ impl Data {
     machine: &str,
     data_key: &str,
   ) -> DataResult<&DataEntry> {
-    Ok(
-      self
-        .data_by_machine
-        .get(machine)
-        .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
-        .get(data_key)
-        .ok_or(DataResultError::KeyNotFound(data_key.to_string()))?,
-    )
+    self
+      .data_by_machine
+      .get(machine)
+      .ok_or(DataResultError::MachineNotFound(machine.to_string()))?
+      .get(data_key)
+      .ok_or(DataResultError::KeyNotFound(data_key.to_string()))
   }
 
   pub fn list_machines(&self) -> Vec<&String> {
@@ -219,8 +218,8 @@ impl Data {
 
     self.machine_by_id.insert(request_id, machine.clone());
 
-    if !self.data_by_machine.contains_key(&machine) {
-      self.data_by_machine.insert(machine, HashMap::new());
+    if let Entry::Vacant(entry) = self.data_by_machine.entry(machine) {
+      entry.insert(HashMap::new());
       true
     } else {
       false
@@ -242,5 +241,11 @@ impl Data {
       }
       None => None,
     }
+  }
+}
+
+impl Default for Data {
+  fn default() -> Self {
+    Self::new()
   }
 }

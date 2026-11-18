@@ -88,7 +88,7 @@ impl Memory {
 impl Bridge for Memory {
   fn get_data(&mut self) -> Result<(String, DataEntry), String> {
     Ok((
-      String::from(self.watchtower_path()),
+      self.watchtower_path(),
       match self.get_memory_data()? {
         Some(data) => DataEntry::from((data.available_kib, data.total_kib)),
         None => DataEntry::new(watchtower_server::data::DataType::None),

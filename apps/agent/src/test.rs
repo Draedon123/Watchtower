@@ -48,6 +48,12 @@ impl Updatable for TestCpuUsage {
   }
 }
 
+impl Default for TestCpuUsage {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 pub struct TestMemoryUsage {
   memory_type: Memory,
   max: u64,

@@ -36,7 +36,7 @@ impl Routes {
   {
     self.routes.push(Route {
       path: Route::path_from_url(path),
-      method: method,
+      method,
       callback: Arc::new(on_request),
     })
   }
@@ -55,7 +55,7 @@ impl Route {
 
     split_url.iter().for_each(|section| {
       if section.starts_with("[") && section.ends_with("]") {
-        let slug_name = (&section[1..(section.len() - 1)]).to_string();
+        let slug_name = section[1..(section.len() - 1)].to_string();
         path.push(URLSection::Slug(slug_name));
       } else {
         path.push(URLSection::Literal(section.to_string()));
@@ -88,5 +88,11 @@ impl Route {
 
       Some(slugs)
     }
+  }
+}
+
+impl Default for Routes {
+  fn default() -> Self {
+    Self::new()
   }
 }

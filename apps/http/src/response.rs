@@ -68,6 +68,12 @@ impl Response {
   }
 }
 
+impl Default for Response {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

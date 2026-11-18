@@ -21,13 +21,10 @@ impl Config {
 
     let watchtower_address = arguments
       .get("watchtower-address")
-      .map(|address| address.clone())
+      .cloned()
       .unwrap_or(String::from("127.0.0.1:9824"));
 
-    let password = arguments
-      .get("password")
-      .map(|password| password.clone())
-      .unwrap_or(String::new());
+    let password = arguments.get("password").cloned().unwrap_or(String::new());
 
     let mode = if flags.contains("h") {
       RunMode::Help

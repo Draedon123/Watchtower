@@ -54,6 +54,12 @@ impl Headers {
   }
 }
 
+impl Default for Headers {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl From<Vec<(&str, &str)>> for Headers {
   fn from(value: Vec<(&str, &str)>) -> Self {
     let mut headers = Self::new();

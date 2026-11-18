@@ -25,10 +25,7 @@ impl Config {
       None => DEFAULT_PORT,
     };
 
-    let password = arguments
-      .get("password")
-      .map(|password| password.clone())
-      .unwrap_or(String::new());
+    let password = arguments.get("password").cloned().unwrap_or(String::new());
 
     let mode = if flags.contains("h") {
       RunMode::Help
