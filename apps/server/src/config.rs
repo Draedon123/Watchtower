@@ -5,7 +5,6 @@ const DEFAULT_PORT: u16 = 9824;
 pub enum RunMode {
   Normal,
   Help,
-  // Unknown(String),
 }
 
 pub struct Config {
@@ -20,16 +19,16 @@ impl Config {
 
     let port = match arguments.get("port") {
       Some(string) => string.parse::<u16>().unwrap_or_else(|_| {
-        eprintln!("Failed to parse port \"{string}\"");
+        eprintln!("Failed to parse port \"{string}\". Using default port: {DEFAULT_PORT}");
         DEFAULT_PORT
       }),
       None => DEFAULT_PORT,
     };
 
-    let password = match arguments.get("password") {
-      Some(string) => string.clone(),
-      None => String::new(),
-    };
+    let password = arguments
+      .get("password")
+      .map(|password| password.clone())
+      .unwrap_or(String::new());
 
     let mode = if flags.contains("h") {
       RunMode::Help

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Headers {
@@ -6,23 +6,19 @@ pub struct Headers {
 }
 
 impl Headers {
-  pub fn new() -> Headers {
-    Headers {
+  pub fn new() -> Self {
+    Self {
       headers: HashMap::new(),
     }
   }
 
   pub fn add_header_line(&mut self, line: &str) -> Result<(), String> {
-    let line_split = if let Some(split) = line.split_once(":") {
-      (split.0.trim(), split.1.trim())
-    } else {
-      return Err(format!("Received malformed header line: {line}"));
+    let (key, value) = match line.split_once(":") {
+      Some((key, value)) => (key.trim().to_lowercase(), value.trim()),
+      None => return Err(format!("Received malformed header line: {line}")),
     };
 
-    let key = &line_split.0.to_lowercase();
-    let value = line_split.1;
-
-    self.set_header(key, value);
+    self.set_header(&key, value);
     Ok(())
   }
 
@@ -38,7 +34,7 @@ impl Headers {
     self
   }
 
-  pub fn combine(source: &Headers, overwrites: &Headers) -> Headers {
+  pub fn combine(source: &Self, overwrites: &Self) -> Self {
     let mut copy = source.clone();
 
     for (key, value) in &overwrites.headers {
@@ -47,26 +43,20 @@ impl Headers {
 
     copy
   }
-}
 
-impl Display for Headers {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let stringified = self
+  pub fn serialise(&self) -> String {
+    self
       .headers
       .iter()
       .map(|entry| format!("{}: {}\n", entry.0, entry.1))
       .collect::<Vec<_>>()
-      .join("");
-
-    f.write_str(&stringified)?;
-
-    Ok(())
+      .join("")
   }
 }
 
 impl From<Vec<(&str, &str)>> for Headers {
   fn from(value: Vec<(&str, &str)>) -> Self {
-    let mut headers = Headers::new();
+    let mut headers = Self::new();
 
     for (key, value) in value {
       headers.set_header(key, value);

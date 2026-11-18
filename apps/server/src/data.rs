@@ -1,10 +1,12 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::error::Error;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use http::status_codes::StatusCode;
+use http::http_status_codes::HttpStatusCode;
 
-use crate::data::DataResultError::{KeyNotFound, MachineNotFound, NoValuesError};
+use crate::data::DataResultError::{
+  KeyNotFound, MachineNotFound, NoValuesError,
+};
 
 #[derive(Clone)]
 pub enum DataType {
@@ -17,25 +19,23 @@ pub enum DataType {
 impl DataType {
   pub fn get_type_string(&self) -> &str {
     match self {
-      DataType::F32Value(_) => "f32",
-      DataType::Vec2U64Value(_) => "vec2u64",
-      DataType::None => "",
-      DataType::Unknown(_) => "unknown",
+      Self::F32Value(_) => "f32",
+      Self::Vec2U64Value(_) => "vec2u64",
+      Self::None => "",
+      Self::Unknown(_) => "unknown",
     }
   }
-}
 
-impl Display for DataType {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  pub fn serialise(&self) -> String {
     let type_string = self.get_type_string();
 
     match self {
-      DataType::F32Value(value) => write!(f, "{type_string}\n{value}"),
-      DataType::Vec2U64Value((value_1, value_2)) => {
-        write!(f, "{type_string}\n{value_1},{value_2}")
+      Self::F32Value(value) => format!("{type_string}\n{value}"),
+      Self::Vec2U64Value((value_1, value_2)) => {
+        format!("{type_string}\n{value_1},{value_2}")
       }
-      DataType::None => Ok(()),
-      DataType::Unknown(value) => write!(f, "{type_string}\n{value}"),
+      Self::None => String::new(),
+      Self::Unknown(value) => format!("{type_string}\n{value}"),
     }
   }
 }
@@ -48,10 +48,14 @@ impl From<(&str, &str)> for DataType {
         Err(_) => DataType::Unknown(value_type.to_owned()),
       },
       "vec2u64" => match value.split_once(",") {
-        Some((value_1, value_2)) => match (value_1.parse::<u64>(), value_2.parse::<u64>()) {
-          (Ok(value_1), Ok(value_2)) => DataType::Vec2U64Value((value_1, value_2)),
-          _ => DataType::Unknown(value.to_owned()),
-        },
+        Some((value_1, value_2)) => {
+          match (value_1.parse::<u64>(), value_2.parse::<u64>()) {
+            (Ok(value_1), Ok(value_2)) => {
+              DataType::Vec2U64Value((value_1, value_2))
+            }
+            _ => DataType::Unknown(value.to_owned()),
+          }
+        }
         None => DataType::Unknown(value.to_owned()),
       },
       _ => DataType::Unknown(value.to_owned()),
@@ -66,11 +70,15 @@ pub struct DataEntry {
 }
 
 impl DataEntry {
-  pub fn new(data: DataType) -> DataEntry {
-    DataEntry {
+  pub fn new(data: DataType) -> Self {
+    Self {
       data,
       timestamp: DataEntry::get_current_time(),
     }
+  }
+
+  pub fn serialise(&self) -> String {
+    format!("{}\n{}", self.data.serialise(), self.timestamp)
   }
 
   fn get_current_time() -> u64 {
@@ -85,20 +93,14 @@ impl DataEntry {
 }
 
 impl From<f32> for DataEntry {
-  fn from(value: f32) -> DataEntry {
-    DataEntry::new(DataType::F32Value(value))
+  fn from(value: f32) -> Self {
+    Self::new(DataType::F32Value(value))
   }
 }
 
 impl From<(u64, u64)> for DataEntry {
-  fn from(value: (u64, u64)) -> DataEntry {
-    DataEntry::new(DataType::Vec2U64Value(value))
-  }
-}
-
-impl Display for DataEntry {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}\n{}", self.data, self.timestamp)
+  fn from(value: (u64, u64)) -> Self {
+    Self::new(DataType::Vec2U64Value(value))
   }
 }
 
@@ -110,6 +112,8 @@ pub enum DataResultError {
   KeyNotFound(String),
   NoValuesError(String),
 }
+
+impl Error for DataResultError {}
 
 impl std::fmt::Display for DataResultError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -126,11 +130,11 @@ impl std::fmt::Display for DataResultError {
 }
 
 impl DataResultError {
-  pub fn get_http_error_code(&self) -> StatusCode {
+  pub fn get_http_error_code(&self) -> HttpStatusCode {
     match *self {
-      MachineNotFound(_) | KeyNotFound(_) => StatusCode::Status404,
+      MachineNotFound(_) | KeyNotFound(_) => HttpStatusCode::Status404,
       // TODO: return entire vector and update status code
-      NoValuesError(_) => StatusCode::Status404,
+      NoValuesError(_) => HttpStatusCode::Status404,
     }
   }
 }
@@ -142,8 +146,8 @@ pub struct Data {
 }
 
 impl Data {
-  pub fn new() -> Data {
-    Data {
+  pub fn new() -> Self {
+    Self {
       data_by_machine: HashMap::new(),
       data_by_key: HashMap::new(),
       machine_by_id: HashMap::new(),
@@ -179,7 +183,11 @@ impl Data {
     Ok(())
   }
 
-  pub fn get_machine_data(&self, machine: &str, data_key: &str) -> DataResult<&DataEntry> {
+  pub fn get_machine_data(
+    &self,
+    machine: &str,
+    data_key: &str,
+  ) -> DataResult<&DataEntry> {
     Ok(
       self
         .data_by_machine

@@ -6,9 +6,10 @@ use watchtower_agent::{
   config::{Config, RunMode},
   help::display_help_message,
   system::{
-    cpu_usage::CpuUsage, hostname::get_hostname, memory::MemoryType, register::loop_register,
+    cpu_usage::CpuUsage, hostname::get_hostname, memory::Memory,
+    register::loop_register,
   },
-  test::spawn_instances,
+  test::Instance,
   watchtower_bridge::{Bridge, send_to_watchtower},
 };
 
@@ -39,8 +40,8 @@ async fn main() {
       loop_register(&config, &mut client, &hostname).await;
 
       let mut cpu_usage = CpuUsage::new();
-      let physical_memory = MemoryType::Physical;
-      let swap_memory = MemoryType::Swap;
+      let physical_memory = Memory::Physical;
+      let swap_memory = Memory::Swap;
 
       let _ = cpu_usage.get_usage();
 
@@ -53,7 +54,8 @@ async fn main() {
       loop {
         sleep(time::Duration::from_millis(1000));
         if let Err(error) =
-          send_to_watchtower(&mut statistics, &mut client, &config, &hostname).await
+          send_to_watchtower(&mut statistics, &mut client, &config, &hostname)
+            .await
         {
           eprintln!("{error}");
           println!("Attempting reconnection");
@@ -67,10 +69,13 @@ async fn main() {
     }
     RunMode::Test(num_test_instances) => {
       println!("Spawning {num_test_instances} test instances");
-      spawn_instances(num_test_instances).await;
+      Instance::spawn_instances(num_test_instances).await;
     }
     RunMode::Help => {
       display_help_message();
+    }
+    RunMode::Error => {
+      println!("Exiting");
     }
   };
 }

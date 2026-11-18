@@ -10,20 +10,18 @@ pub struct CpuUsage {
 }
 
 impl CpuUsage {
-  pub fn new() -> CpuUsage {
-    let (total, idle) = CpuUsage::read_cpu_times().unwrap_or((0, 0));
+  pub fn new() -> Self {
+    let (total, idle) = Self::read_cpu_times().unwrap_or((0, 0));
 
-    CpuUsage {
+    Self {
       last_total: total,
       last_idle: idle,
     }
   }
 
   pub fn get_usage(&mut self) -> Result<f32, String> {
-    let (new_total, new_idle) = match CpuUsage::read_cpu_times() {
-      Ok(cpu_times) => cpu_times,
-      Err(error) => return Err(format!("Failed to get cpu usage: {error}")),
-    };
+    let (new_total, new_idle) = Self::read_cpu_times()
+      .map_err(|error| format!("Failed to get cpu usage: {error}"))?;
 
     let delta_total = new_total - self.last_total;
     let delta_idle = new_idle - self.last_idle;
@@ -38,10 +36,8 @@ impl CpuUsage {
   }
 
   fn read_cpu_times() -> Result<(u64, u64), String> {
-    let stats = match read_to_string("/proc/stat") {
-      Ok(data) => data,
-      Err(_) => return Err(String::from("Could not read from /proc/stat")),
-    };
+    let stats = read_to_string("/proc/stat")
+      .map_err(|error| format!("Could not read from /proc/stat: {error}"))?;
     let cpu_line = stats
       .lines()
       .find(|line| line.starts_with("cpu "))

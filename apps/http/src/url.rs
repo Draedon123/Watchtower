@@ -15,7 +15,7 @@ impl Url {
   pub fn from_parts(
     protocol: Option<&str>,
     host: &str,
-    port: Option<u16>,
+    port: &Option<u16>,
     path: &Option<String>,
     query: &Option<HashMap<String, String>>,
   ) -> Self {
@@ -46,7 +46,7 @@ impl Url {
       }
     }
 
-    Url::new(&raw)
+    Self::new(&raw)
   }
 
   pub fn protocol(&self) -> Result<String, ()> {
@@ -59,13 +59,7 @@ impl Url {
 
   pub fn port(&self) -> Result<u16, ()> {
     match self.host_and_port()?.1 {
-      Some(port) => {
-        let parsed = port.parse::<u16>();
-        match parsed {
-          Ok(port) => Ok(port),
-          Err(_) => Err(()),
-        }
-      }
+      Some(port) => port.parse::<u16>().map_err(|_| ()),
       None => Err(()),
     }
   }
@@ -87,7 +81,9 @@ impl Url {
 
   fn protocol_and_rest(&self) -> Result<(Option<String>, String), ()> {
     match self.raw.split_once("://") {
-      Some((protocol, rest)) => Ok((Some(protocol.to_string()), rest.to_string())),
+      Some((protocol, rest)) => {
+        Ok((Some(protocol.to_string()), rest.to_string()))
+      }
       None => Ok((None, self.raw.clone())),
     }
   }
@@ -155,7 +151,7 @@ impl Url {
     });
     let port = self.port().ok();
 
-    let new_url = Url::from_parts(None, &host, port, &path, &query);
+    let new_url = Url::from_parts(None, &host, &port, &path, &query);
 
     Ok(new_url.raw)
   }
@@ -209,14 +205,18 @@ impl Url {
 
       if byte == b'%' {
         if i + 2 >= bytes.len() {
-          return Err(String::from("Incomplete percent encoding"));
+          return Err(String::from(
+            "Incomplete percent encoding: trailing/incomplete %",
+          ));
         }
 
         // fetch the two characters after the %
-        let hex = str::from_utf8(&bytes[i + 1..=i + 2])
-          .map_err(|_| String::from("Invalid percent encoding"))?;
-        let byte =
-          u8::from_str_radix(hex, 16).map_err(|_| String::from("Invalid percent encoding"))?;
+        let hex = str::from_utf8(&bytes[i + 1..=i + 2]).map_err(|error| {
+          format!("Invalid percent encoding: invalid utf8 code: {error}")
+        })?;
+        let byte = u8::from_str_radix(hex, 16).map_err(|error| {
+          format!("Invalid percent encoding: invalid hex \"{hex}\": {error}")
+        })?;
 
         decoded.push(byte);
         i += 3;
@@ -226,7 +226,9 @@ impl Url {
       }
     }
 
-    String::from_utf8(decoded).map_err(|_| String::from("Decoded URI component is not valid utf-8"))
+    String::from_utf8(decoded).map_err(|error| {
+      format!("Decoded URI component is not valid utf-8: {error}")
+    })
   }
 }
 

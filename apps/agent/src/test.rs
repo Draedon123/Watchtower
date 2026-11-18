@@ -7,11 +7,10 @@ use watchtower_server::data::DataEntry;
 
 use crate::{
   config::Config,
-  system::{hostname::get_hostname, memory::MemoryType, register::loop_register},
+  system::{hostname::get_hostname, memory::Memory, register::loop_register},
   watchtower_bridge::{Bridge, send_to_watchtower},
 };
 
-trait Testable: Updatable + Bridge {}
 pub trait Updatable {
   fn update(&mut self);
 }
@@ -22,14 +21,15 @@ pub struct TestCpuUsage {
 }
 
 impl TestCpuUsage {
-  pub fn new() -> TestCpuUsage {
+  pub fn new() -> Self {
     let mut rng: SmallRng = rand::make_rng();
     let cpu_usage: f32 = rng.random_range(0.3..0.7);
 
-    TestCpuUsage { cpu_usage, rng }
+    Self { cpu_usage, rng }
   }
 }
 
+trait Testable: Updatable + Bridge {}
 impl Testable for TestCpuUsage {}
 
 impl Bridge for TestCpuUsage {
@@ -49,25 +49,27 @@ impl Updatable for TestCpuUsage {
 }
 
 pub struct TestMemoryUsage {
-  memory_type: MemoryType,
+  memory_type: Memory,
   max: u64,
   free: u64,
   rng: SmallRng,
 }
 
 impl TestMemoryUsage {
-  pub fn new(memory_type: MemoryType) -> TestMemoryUsage {
+  pub fn new(memory_type: Memory) -> Self {
     let mut rng: SmallRng = rand::make_rng();
     let possible_max_gib: Vec<u64> = match memory_type {
-      MemoryType::Physical => vec![2, 4, 8, 16, 32, 64],
-      MemoryType::Swap => vec![2, 4, 8, 16],
+      Memory::Physical => vec![2, 4, 8, 16, 32, 64],
+      Memory::Swap => vec![2, 4, 8, 16],
     };
 
-    let max_kib =
-      1024 * 1024 * possible_max_gib[rng.random::<u8>() as usize % possible_max_gib.len()];
-    let free_kib = rng.random_range(0.2 * (max_kib as f32)..0.8 * (max_kib as f32)) as u64;
+    let max_kib = 1024
+      * 1024
+      * possible_max_gib[rng.random::<u8>() as usize % possible_max_gib.len()];
+    let free_kib =
+      rng.random_range(0.2 * (max_kib as f32)..0.8 * (max_kib as f32)) as u64;
 
-    TestMemoryUsage {
+    Self {
       memory_type,
       max: max_kib,
       free: free_kib,
@@ -97,7 +99,7 @@ impl Bridge for TestMemoryUsage {
   }
 }
 
-struct Instance {
+pub struct Instance {
   hostname: String,
   config: Config,
   client: Client,
@@ -105,7 +107,7 @@ struct Instance {
 }
 
 impl Instance {
-  pub fn new(id: usize, config: Config) -> Result<Instance, String> {
+  pub fn new(id: usize, config: Config) -> Result<Self, String> {
     let hostname = get_hostname()?;
     let hostname = format!("{hostname} {id}");
     // TODO: reduce code repetition
@@ -125,11 +127,11 @@ impl Instance {
 
     let test_stats: Vec<Box<dyn Testable>> = vec![
       Box::new(TestCpuUsage::new()),
-      Box::new(TestMemoryUsage::new(MemoryType::Physical)),
-      Box::new(TestMemoryUsage::new(MemoryType::Swap)),
+      Box::new(TestMemoryUsage::new(Memory::Physical)),
+      Box::new(TestMemoryUsage::new(Memory::Swap)),
     ];
 
-    Ok(Instance {
+    Ok(Self {
       hostname,
       config,
       client,
@@ -168,39 +170,41 @@ impl Instance {
 
       match self.client.try_reconnect_once().await {
         Ok(_) => println!("{} reconnected", self.hostname),
-        Err(error) => eprintln!("{} failed to reconnect: {error}", self.hostname),
+        Err(error) => {
+          eprintln!("{} failed to reconnect: {error}", self.hostname)
+        }
       };
     };
   }
-}
 
-pub async fn spawn_instances(num_instances: usize) {
-  let args: Vec<String> = env::args().collect();
-  let config = Config::new(&args);
+  pub async fn spawn_instances(num_instances: usize) {
+    let args: Vec<String> = env::args().collect();
+    let config = Config::new(&args);
 
-  let mut instances: Vec<Instance> = Vec::with_capacity(num_instances);
+    let mut instances: Vec<Self> = Vec::with_capacity(num_instances);
 
-  for id in 1..=num_instances {
-    let instance = Instance::new(id, config.clone());
+    for id in 1..=num_instances {
+      let instance = Self::new(id, config.clone());
 
-    match instance {
-      Ok(mut instance) => {
-        instance.register().await;
-        instances.push(instance)
+      match instance {
+        Ok(mut instance) => {
+          instance.register().await;
+          instances.push(instance)
+        }
+        Err(error) => eprintln!("Failed to spawn test instance {id}: {error}"),
       }
-      Err(error) => eprintln!("Failed to spawn test instance {id}: {error}"),
-    }
-  }
-
-  loop {
-    let mut futures = Vec::with_capacity(num_instances);
-
-    for instance in &mut *instances {
-      futures.push(instance.tick());
     }
 
-    join_all(futures).await;
+    loop {
+      let mut futures = Vec::with_capacity(num_instances);
 
-    sleep(time::Duration::from_millis(1000));
+      for instance in &mut *instances {
+        futures.push(instance.tick());
+      }
+
+      join_all(futures).await;
+
+      sleep(time::Duration::from_millis(1000));
+    }
   }
 }

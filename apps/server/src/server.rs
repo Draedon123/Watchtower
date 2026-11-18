@@ -1,6 +1,7 @@
 use crate::{config::Config, route::Routes};
 use http::{
-  header::Headers, http_connection::HTTPConnection, request::Request, response::Response, url::Url,
+  header::Headers, http_connection::HttpConnection, request::Request,
+  response::Response, url::Url,
 };
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
@@ -25,7 +26,8 @@ pub struct Server<'a> {
 }
 
 pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type OnConnectionClose = Arc<dyn Fn(TcpStream, u64) -> OnConnectionCloseFuture + Send + Sync>;
+pub type OnConnectionClose =
+  Arc<dyn Fn(TcpStream, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
@@ -97,16 +99,17 @@ impl<'a> Server<'a> {
     on_connection_close: Option<OnConnectionClose>,
     request_id: u64,
   ) {
-    let mut connection = HTTPConnection::new(stream);
+    let mut connection = HttpConnection::new(stream);
 
     loop {
-      let http_request = match Request::read_from_buffer(&mut connection.stream).await {
-        Ok(request) => request,
-        Err(error) => {
-          eprintln!("Failed to read incoming TcpStream: {error}");
-          break;
-        }
-      };
+      let http_request =
+        match Request::read_from_buffer(&mut connection.stream).await {
+          Ok(request) => request,
+          Err(error) => {
+            eprintln!("Failed to read incoming TcpStream: {error}");
+            break;
+          }
+        };
 
       let mut request_slugs: HashMap<String, String> = HashMap::new();
       let request_method = http_request.method.clone();
@@ -124,7 +127,8 @@ impl<'a> Server<'a> {
         }
       };
 
-      let close_connection = match http_request.headers.get_header("Connection") {
+      let close_connection = match http_request.headers.get_header("Connection")
+      {
         Some(value) => value == "close",
         None => false,
       };
@@ -168,9 +172,12 @@ impl<'a> Server<'a> {
           };
         }
         None => {
-          println!("Route not found. Method: {request_method}, Path: {request_path}",);
+          println!(
+            "Route not found. Method: {request_method}, Path: {request_path}",
+          );
 
-          response.status_code = http::status_codes::StatusCode::Status404;
+          response.status_code =
+            http::http_status_codes::HttpStatusCode::Status404;
           if let Err(error) = connection.send_response(&mut response).await {
             eprintln!(
               "Failed to send 404 for {request_method} request for route {request_path}: {error}"

@@ -3,21 +3,21 @@ use std::time::Duration;
 use tokio::{net::TcpStream, time::sleep};
 
 use crate::{
-  header::Headers, http_connection::HTTPConnection, method::HTTPMethod, request::Request,
-  response::Response, url::Url,
+  header::Headers, http_connection::HttpConnection, http_method::HttpMethod,
+  request::Request, response::Response, url::Url,
 };
 
 pub struct Client {
   pub default_headers: Headers,
 
-  pub connection: Option<HTTPConnection>,
+  pub connection: Option<HttpConnection>,
   host: String,
   port: u16,
 }
 
 impl Client {
-  pub fn new() -> Client {
-    Client {
+  pub fn new() -> Self {
+    Self {
       connection: None,
       host: String::new(),
       port: 0,
@@ -27,7 +27,7 @@ impl Client {
 
   pub async fn request(
     &mut self,
-    method: HTTPMethod,
+    method: HttpMethod,
     address: &str,
     headers: Option<Headers>,
   ) -> Result<Request, String> {
@@ -39,12 +39,9 @@ impl Client {
       }
     };
 
-    let host = match url.host() {
-      Ok(host) => host,
-      Err(_) => {
-        return Err(format!("Could not get host from address \"{address}\""));
-      }
-    };
+    let host = url
+      .host()
+      .map_err(|_| format!("Could not get host from address \"{address}\""))?;
     let port = url
       .port()
       .unwrap_or_else(|_| url.guess_port().unwrap_or(80));
@@ -60,34 +57,41 @@ impl Client {
         Err(error) => return Err(error.to_string()),
       };
 
-      self.connection = Some(HTTPConnection::new(stream));
+      self.connection = Some(HttpConnection::new(stream));
     };
 
-    if let Some(_) = self.connection {
-      let mut request = Request::new();
-      request.method = method;
-      request.path = url;
+    match self.connection {
+      Some(_) => {
+        let mut request = Request::new();
+        request.method = method;
+        request.path = url;
 
-      request.headers = match headers {
-        Some(headers) => Headers::combine(&self.default_headers, &headers),
-        // TODO: don't clone headers every time
-        None => self.default_headers.clone(),
-      };
+        request.headers = match headers {
+          Some(headers) => Headers::combine(&self.default_headers, &headers),
+          // TODO: don't clone headers every time
+          None => self.default_headers.clone(),
+        };
 
-      Ok(request)
-    } else {
-      Err(String::from("No connection made"))
+        Ok(request)
+      }
+      None => Err(String::from("No connection made")),
     }
   }
 
-  pub async fn send_request(&mut self, request: &mut Request) -> Result<(), String> {
+  pub async fn send_request(
+    &mut self,
+    request: &mut Request,
+  ) -> Result<(), String> {
     match self.connection.as_mut() {
       Some(connection) => Ok(connection.send_request(request).await?),
       None => Err(String::from("Could not send request: disconnected")),
     }
   }
 
-  pub async fn send_response(&mut self, response: &mut Response) -> Result<(), String> {
+  pub async fn send_response(
+    &mut self,
+    response: &mut Response,
+  ) -> Result<(), String> {
     match self.connection.as_mut() {
       Some(connection) => Ok(connection.send_response(response).await?),
       None => Err(String::from("Could not send request: disconnected")),
@@ -109,7 +113,7 @@ impl Client {
 
   pub async fn try_reconnect_once(&mut self) -> Result<(), std::io::Error> {
     let stream = TcpStream::connect((&self.host[..], self.port)).await?;
-    self.connection = Some(HTTPConnection::new(stream));
+    self.connection = Some(HttpConnection::new(stream));
 
     Ok(())
   }

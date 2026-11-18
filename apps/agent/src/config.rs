@@ -5,6 +5,7 @@ pub enum RunMode {
   Normal,
   Test(usize),
   Help,
+  Error,
 }
 
 #[derive(Clone)]
@@ -15,18 +16,18 @@ pub struct Config {
 }
 
 impl Config {
-  pub fn new(args: &[String]) -> Config {
+  pub fn new(args: &[String]) -> Self {
     let (arguments, flags, _) = parse_args(args);
 
-    let watchtower_address = match arguments.get("watchtower-address") {
-      Some(string) => string.clone(),
-      None => String::from("127.0.0.1:9824"),
-    };
+    let watchtower_address = arguments
+      .get("watchtower-address")
+      .map(|address| address.clone())
+      .unwrap_or(String::from("127.0.0.1:9824"));
 
-    let password = match arguments.get("password") {
-      Some(string) => string.clone(),
-      None => String::new(),
-    };
+    let password = arguments
+      .get("password")
+      .map(|password| password.clone())
+      .unwrap_or(String::new());
 
     let mode = if flags.contains("h") {
       RunMode::Help
@@ -41,15 +42,17 @@ impl Config {
             }
           }
           Err(error) => {
-            println!("Failed to parse number of test instances \"{string}\": {error}");
-            RunMode::Normal
+            eprintln!(
+              "Failed to parse number of test instances \"{string}\": {error}"
+            );
+            RunMode::Error
           }
         },
         None => RunMode::Normal,
       }
     };
 
-    Config {
+    Self {
       password,
       watchtower_address,
       mode,

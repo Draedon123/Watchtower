@@ -1,10 +1,14 @@
 use std::{thread::sleep, time};
 
-use http::{client::Client, method::HTTPMethod};
+use http::{client::Client, http_method::HttpMethod};
 
 use crate::config::Config;
 
-pub async fn loop_register(config: &Config, client: &mut Client, hostname: &str) {
+pub async fn loop_register(
+  config: &Config,
+  client: &mut Client,
+  hostname: &str,
+) {
   while let Err(error) = try_register(config, client, hostname).await {
     eprintln!("Failed to register {hostname}: {error}");
     sleep(time::Duration::from_millis(1000));
@@ -20,7 +24,7 @@ pub async fn try_register(
 ) -> Result<(), String> {
   let mut request = client
     .request(
-      HTTPMethod::Post(),
+      HttpMethod::Post(),
       &format!("{}/machine/register/{hostname}", config.watchtower_address),
       None,
     )

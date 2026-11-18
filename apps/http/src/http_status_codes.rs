@@ -1,13 +1,13 @@
 macro_rules! define_status_codes {
   ($($code: literal => $variant: ident: $message:literal),+ $(,)?) => {
     #[derive(Debug, PartialEq)]
-    pub enum StatusCode {
+    pub enum HttpStatusCode {
       $($variant,)+
 
       Unknown(u16),
     }
 
-    impl StatusCode {
+    impl HttpStatusCode {
       pub fn get_code(&self) -> u16 {
         match *self {
           $(Self::$variant => $code,)+
@@ -23,7 +23,7 @@ macro_rules! define_status_codes {
       }
     }
 
-    impl From<u16> for StatusCode {
+    impl From<u16> for HttpStatusCode {
       fn from(code: u16) -> Self {
         match code {
           $($code => Self::$variant,)+
@@ -32,7 +32,7 @@ macro_rules! define_status_codes {
       }
     }
 
-    impl std::fmt::Display for StatusCode {
+    impl std::fmt::Display for HttpStatusCode {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.get_code(), self.get_message())
       }
@@ -40,7 +40,6 @@ macro_rules! define_status_codes {
   };
 }
 
-// unashamedly AI generated
 define_status_codes! {
   100 => Status100: "Continue",
   101 => Status101: "Switching Protocols",

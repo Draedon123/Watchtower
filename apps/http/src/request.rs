@@ -1,14 +1,14 @@
 use crate::body::Body;
 use crate::header::Headers;
+use crate::http_method::HttpMethod;
 use crate::http_parser::parse_http_headers_and_content;
-use crate::method::HTTPMethod;
 use crate::url::Url;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpStream;
 
 pub struct Request {
-  pub method: HTTPMethod,
+  pub method: HttpMethod,
   pub path: Url,
   pub headers: Headers,
   pub body: Body,
@@ -16,8 +16,8 @@ pub struct Request {
 
 impl Request {
   pub fn new() -> Self {
-    Request {
-      method: HTTPMethod::Get(),
+    Self {
+      method: HttpMethod::Get(),
       path: Url::new(""),
       headers: Headers::new(),
       body: Body::None,
@@ -32,22 +32,24 @@ impl Request {
         .path
         .percent_encode()
         .unwrap_or_else(|_| self.path.raw.clone()),
-      self.headers
+      self.headers.serialise()
     )
   }
 
-  pub async fn read_from_buffer(buffer: &mut BufReader<TcpStream>) -> Result<Request, String> {
+  pub async fn read_from_buffer(
+    buffer: &mut BufReader<TcpStream>,
+  ) -> Result<Self, String> {
     let mut start_line = String::new();
 
     buffer
       .read_line(&mut start_line)
       .await
-      .map_err(|error| format!("Failed to read start-line: {error}"))?;
+      .map_err(|error| format!("Failed to read start line: {error}"))?;
 
     let (headers, body) = parse_http_headers_and_content(buffer).await?;
-    let (method, path) = Request::parse_start_line(&start_line)?;
+    let (method, path) = Self::parse_start_line(&start_line)?;
 
-    let request = Request {
+    let request = Self {
       method,
       path,
       headers,
@@ -57,12 +59,12 @@ impl Request {
     Ok(request)
   }
 
-  fn parse_start_line(line: &str) -> Result<(HTTPMethod, Url), String> {
+  fn parse_start_line(line: &str) -> Result<(HttpMethod, Url), String> {
     let mut split = line.split(" ");
     let method = split
       .next()
       .ok_or(format!("Malformed start line: \"{line}\""))
-      .map(|method| HTTPMethod::from(method))?;
+      .map(HttpMethod::from)?;
     let path = split
       .next()
       .ok_or(format!("Malformed start line: \"{line}\""))
@@ -80,7 +82,7 @@ mod tests {
   fn start_lines() {
     assert_eq!(
       Request::parse_start_line("POST /users HTTP/1.1"),
-      Ok((HTTPMethod::Post(), Url::new("/users")))
+      Ok((HttpMethod::Post(), Url::new("/users")))
     );
   }
 }

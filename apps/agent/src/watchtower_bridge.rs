@@ -1,4 +1,4 @@
-use http::{body::Body, client::Client, method::HTTPMethod};
+use http::{body::Body, client::Client, http_method::HttpMethod};
 use watchtower_server::data::DataEntry;
 
 use crate::config::Config;
@@ -15,7 +15,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
 ) -> Result<(), String> {
   let mut request = http_client
     .request(
-      HTTPMethod::Post(),
+      HttpMethod::Post(),
       &format!("{}/machine/{hostname}/set", config.watchtower_address),
       None,
     )
@@ -26,7 +26,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
   for client in data {
     match client.get_data() {
       Ok((key, value)) => {
-        serialised_data.push_str(&format!("{key}\n{value}\n"));
+        serialised_data.push_str(&format!("{key}\n{}\n", value.serialise()));
       }
       Err(error) => eprintln!("{error}"),
     }
