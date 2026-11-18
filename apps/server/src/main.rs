@@ -301,6 +301,21 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
     },
   );
 
+  routes.route("/chunk-test", HttpMethod::Post(), |_, mut response| {
+    Box::pin(async {
+      let data = tokio_stream::iter(vec![
+        String::from("Chunk 1").into_bytes(),
+        String::from("Chunk 2").into_bytes(),
+        String::from("Chunk 3").into_bytes(),
+      ]);
+
+      response.status_code = HttpStatusCode::Status200;
+      response.body = Body::Chunked(Box::pin(data));
+
+      response
+    })
+  });
+
   routes
 }
 

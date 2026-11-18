@@ -1,15 +1,19 @@
+use std::pin::Pin;
+
 use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio_stream::{Stream, StreamExt};
 
 use crate::header::Headers;
 
 pub enum Body {
   Fixed(String),
   Binary(Vec<u8>),
+  Chunked(Pin<Box<dyn Stream<Item = Vec<u8>> + Send + Sync>>),
   None,
 }
 
 impl Body {
-  pub async fn write(&self, stream: &mut TcpStream) -> Result<(), String> {
+  pub async fn write(&mut self, stream: &mut TcpStream) -> Result<(), String> {
     match self {
       Self::Fixed(content) => stream
         .write_all(content.as_bytes())
@@ -20,6 +24,23 @@ impl Body {
         .write_all(content)
         .await
         .map_err(|error| error.to_string()),
+      Self::Chunked(content) => {
+        while let Some(data) = content.next().await {
+          stream
+            .write_all(format!("{}\r\n", data.len()).as_bytes())
+            .await
+            .unwrap();
+          stream
+            .write_all(&data)
+            .await
+            .map_err(|error| error.to_string())?;
+          stream.write_all(b"\r\n").await.unwrap();
+        }
+
+        stream.write_all(b"0\r\n\r\n").await.unwrap();
+
+        Ok(())
+      }
       Self::None => Ok(()),
     }
   }
@@ -34,7 +55,12 @@ impl Body {
       Self::Binary(content) => {
         headers
           .set_header("Content-Length", &content.len().to_string())
-          .set_header("Content-Type", "application/octet-stream;");
+          .set_header("Content-Type", "application/octet-stream");
+      }
+      Self::Chunked(_) => {
+        headers
+          .set_header("Content-Type", "application/octet-stream")
+          .set_header("Transfer-Encoding", "chunked");
       }
       Self::None => (),
     };
@@ -46,6 +72,7 @@ impl Body {
       Self::Binary(content) => std::str::from_utf8(content).map_err(|error| {
         format!("Failed to convert binary data to utf8: {error}")
       }),
+      Self::Chunked(_) => todo!(),
       Self::None => Ok(""),
     }
   }
