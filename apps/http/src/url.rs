@@ -15,9 +15,9 @@ impl Url {
   pub fn from_parts(
     protocol: Option<&str>,
     host: &str,
-    port: &Option<u16>,
-    path: &Option<&str>,
-    query: &Option<HashMap<String, String>>,
+    port: Option<u16>,
+    path: Option<&str>,
+    query: Option<&HashMap<String, String>>,
   ) -> Self {
     let mut raw = String::new();
 
@@ -145,8 +145,7 @@ impl Url {
       .collect();
     let port = self.port().ok();
 
-    let new_url =
-      Url::from_parts(None, &host, &port, &Some(&path), &Some(query));
+    let new_url = Url::from_parts(None, &host, port, Some(&path), Some(&query));
 
     new_url.raw
   }
