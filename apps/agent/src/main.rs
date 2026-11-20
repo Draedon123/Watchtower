@@ -27,11 +27,11 @@ async fn main() {
 
   match config.mode {
     RunMode::Normal => {
-      println!("Connecting to server on {}", config.watchtower_address);
+      println!("Connecting to server on {}", config.watchtower_uri);
 
       let mut client = Client::new();
       let headers = Headers::from(vec![
-        ("Host", &config.watchtower_address as &str),
+        ("Host", &config.watchtower_uri.authority as &str),
         ("Authorization", &config.password),
       ]);
 

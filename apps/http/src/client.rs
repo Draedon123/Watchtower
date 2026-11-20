@@ -1,10 +1,11 @@
 use std::time::Duration;
 
+use misc::uri::Uri;
 use tokio::{net::TcpStream, time::sleep};
 
 use crate::{
   header::Headers, http_connection::HttpConnection, http_method::HttpMethod,
-  request::Request, response::Response, url::Url,
+  request::Request, response::Response,
 };
 
 pub struct Client {
@@ -28,33 +29,22 @@ impl Client {
   pub async fn request(
     &mut self,
     method: HttpMethod,
-    address: &str,
+    uri: Uri,
     headers: Option<Headers>,
   ) -> Result<Request, String> {
-    let url = Url::new(address);
-
-    if let Some(protocol) = url.protocol()
-      && protocol != "http"
-    {
-      unimplemented!("Only HTTP requests are supported")
+    if uri.scheme != "http" {
+      unimplemented!("Unrecognised scheme \"{}\"", uri.scheme);
     };
 
-    let host = url.host();
-    let port = url
-      .port()
-      .unwrap_or_else(|_| url.guess_port().unwrap_or(80));
+    let port = uri.get_port().unwrap_or(80);
 
-    if self.host != host || self.port != port {
-      let stream = match TcpStream::connect((&host[..], port)).await {
-        Ok(stream) => {
-          self.host = host;
-          self.port = port;
+    if self.host != uri.authority || self.port != port {
+      let stream = TcpStream::connect((uri.get_host(), port))
+        .await
+        .map_err(|error| format!("TcpStream::connect failed: {error}"))?;
 
-          stream
-        }
-        Err(error) => return Err(error.to_string()),
-      };
-
+      self.host = uri.authority.clone();
+      self.port = port;
       self.connection = Some(HttpConnection::new(stream));
     };
 
@@ -62,7 +52,7 @@ impl Client {
       Some(_) => {
         let mut request = Request::new();
         request.method = method;
-        request.path = url;
+        request.uri = uri;
 
         request.headers = match headers {
           Some(headers) => Headers::combine(&self.default_headers, &headers),

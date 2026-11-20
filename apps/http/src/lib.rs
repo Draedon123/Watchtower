@@ -7,4 +7,3 @@ pub mod http_parser;
 pub mod http_status_codes;
 pub mod request;
 pub mod response;
-pub mod url;

@@ -1,8 +1,9 @@
 use crate::{config::Config, route::Routes};
 use http::{
   header::Headers, http_connection::HttpConnection, request::Request,
-  response::Response, url::Url,
+  response::Response,
 };
+use misc::uri::Uri;
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use tokio::{
@@ -113,14 +114,13 @@ impl<'a> Server<'a> {
 
       let mut request_slugs: HashMap<String, String> = HashMap::new();
       let request_method = http_request.method.clone();
-      let request_path =
-        match Url::decode_uri_component(&http_request.path.path()) {
-          Ok(path) => path,
-          Err(_) => {
-            eprintln!("Failed to decode request path {}", http_request.path);
-            continue;
-          }
-        };
+      let request_path = match Uri::percent_decode(&http_request.uri.path) {
+        Ok(path) => path,
+        Err(_) => {
+          eprintln!("Failed to decode request path {}", http_request.uri.path);
+          continue;
+        }
+      };
 
       let close_connection = match http_request.headers.get_header("Connection")
       {
@@ -162,7 +162,7 @@ impl<'a> Server<'a> {
           if let Err(error) = connection.send_response(&mut response).await {
             eprintln!(
               "Failed to serve {} route \"{}\": {error}",
-              request.http_request.method, request.http_request.path
+              request.http_request.method, request.http_request.uri.path
             );
           };
         }

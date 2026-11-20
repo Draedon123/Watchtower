@@ -2,13 +2,13 @@ use crate::body::Body;
 use crate::header::Headers;
 use crate::http_method::HttpMethod;
 use crate::http_parser::parse_http_headers_and_content;
-use crate::url::Url;
 
+use misc::uri::Uri;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
 pub struct Request {
   pub method: HttpMethod,
-  pub path: Url,
+  pub uri: Uri,
   pub headers: Headers,
   pub body: Body,
 }
@@ -17,7 +17,7 @@ impl Request {
   pub fn new() -> Self {
     Self {
       method: HttpMethod::Get(),
-      path: Url::new(""),
+      uri: Uri::default(),
       headers: Headers::new(),
       body: Body::None,
     }
@@ -27,7 +27,7 @@ impl Request {
     format!(
       "{} {} HTTP/1.1\r\n{}\r\n",
       self.method,
-      self.path.percent_encode(),
+      Uri::percent_encode(&self.uri.path),
       self.headers.serialise()
     )
   }
@@ -48,7 +48,7 @@ impl Request {
 
     let request = Self {
       method,
-      path,
+      uri: path,
       headers,
       body,
     };
@@ -56,7 +56,7 @@ impl Request {
     Ok(request)
   }
 
-  fn parse_start_line(line: &str) -> Result<(HttpMethod, Url), String> {
+  fn parse_start_line(line: &str) -> Result<(HttpMethod, Uri), String> {
     let mut split = line.split(" ");
     let method = split
       .next()
@@ -65,7 +65,8 @@ impl Request {
     let path = split
       .next()
       .ok_or(format!("Malformed start line: \"{line}\""))
-      .map(Url::new)?;
+      .map(Uri::new)?
+      .map_err(|error| error.to_string())?;
 
     Ok((method, path))
   }
@@ -85,7 +86,7 @@ mod tests {
   fn start_lines() {
     assert_eq!(
       Request::parse_start_line("POST /users HTTP/1.1"),
-      Ok((HttpMethod::Post(), Url::new("/users")))
+      Ok((HttpMethod::Post(), Uri::new("/users").unwrap()))
     );
   }
 }
