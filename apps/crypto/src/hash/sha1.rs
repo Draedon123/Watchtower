@@ -194,4 +194,19 @@ mod tests {
       [0x34aa973c, 0xd4c4daa4, 0xf61eeb2b, 0xdbad2731, 0x6534016f]
     );
   }
+
+  #[test]
+  #[ignore = "expensive"]
+  fn very_long_hash() {
+    let one_gb = String::from(
+      "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno",
+    )
+    .repeat(16777216)
+    .into_bytes();
+
+    assert_eq!(
+      sha1(one_gb),
+      [0x7789f0c9, 0xef7bfc40, 0xd9331114, 0x3dfbe69e, 0x2017f592]
+    );
+  }
 }

@@ -46,7 +46,7 @@ impl BitVec {
   }
 
   pub fn append(&mut self, bit: bool) {
-    if self.len().is_multiple_of(u8::BITS as usize) {
+    if self.len().is_multiple_of(U8_BITS) {
       self.bits.push(0);
     }
 
