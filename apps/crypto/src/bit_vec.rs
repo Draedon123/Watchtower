@@ -61,20 +61,50 @@ impl BitVec {
     self.bits.resize(Self::bytes_required(length), 0);
   }
 
-  pub fn write_u64(&mut self, value: u64, bit_offset: usize) {
+  pub fn get_byte(&self, byte: usize) -> &u8 {
+    &self.bits[byte]
+  }
+
+  pub fn write_byte(&mut self, index: usize, byte: u8) {
+    self.bits[index] = byte;
+  }
+
+  pub fn get_u32_be(&self, index: usize) -> u32 {
+    let byte_index = index * (32 / 8);
+
+    u32::from_be_bytes([
+      *self.get_byte(byte_index),
+      *self.get_byte(byte_index + 1),
+      *self.get_byte(byte_index + 2),
+      *self.get_byte(byte_index + 3),
+    ])
+  }
+
+  pub fn get_u64_be(&self, index: usize) -> u64 {
+    let byte_index = index * (64 / 8);
+
+    u64::from_be_bytes([
+      *self.get_byte(byte_index),
+      *self.get_byte(byte_index + 1),
+      *self.get_byte(byte_index + 2),
+      *self.get_byte(byte_index + 3),
+      *self.get_byte(byte_index + 4),
+      *self.get_byte(byte_index + 5),
+      *self.get_byte(byte_index + 6),
+      *self.get_byte(byte_index + 7),
+    ])
+  }
+
+  pub fn write_u64_be(&mut self, value: u64, bit_offset: usize) {
     let end = bit_offset + 64;
 
     if end >= self.len() {
       self.resize(end);
     }
 
-    for i in (0..64usize).rev() {
-      self.set(bit_offset + i, value & (1 << i) != 0);
+    for i in 0..64usize {
+      self.set(bit_offset + i, value & (1 << (63 - i)) != 0);
     }
-  }
-
-  pub fn get_byte(&self, byte: usize) -> &u8 {
-    &self.bits[byte]
   }
 
   pub fn get_containing_byte(&self, bit: usize) -> &u8 {
@@ -87,7 +117,7 @@ impl BitVec {
     &mut self.bits[byte_index]
   }
 
-  fn get_containing_byte_index(bit: usize) -> usize {
+  pub fn get_containing_byte_index(bit: usize) -> usize {
     bit / 8
   }
 
@@ -120,8 +150,10 @@ mod tests {
     assert_eq!(bit_vec.get(14), Some(false));
     assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
 
-    bit_vec.write_u64(!0, 4);
+    bit_vec.write_u64_be(!0, 4);
     assert_eq!(bit_vec.bits[0], 0b00001111);
     assert_eq!(bit_vec.bits[1], 0b11111111);
+    assert_eq!(bit_vec.get_u32_be(0), 0x0fffffff);
+    assert_eq!(bit_vec.get_u64_be(0), 0x0fffffffffffffff);
   }
 }
