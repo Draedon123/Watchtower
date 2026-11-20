@@ -450,6 +450,12 @@ dependencies = [
 [[package]]
 name = "websocket"
 version = "0.1.0"
+dependencies = [
+ "crypto",
+ "http",
+ "misc",
+ "tokio",
+]
 
 [[package]]
 name = "windows-link"
