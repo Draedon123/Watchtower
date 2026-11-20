@@ -56,11 +56,14 @@ fn k(t: usize) -> u32 {
 fn pad(message: &mut Message) {
   let padding = (447 + 512 - (message.length % 512)) % 512;
 
-  message.bits.resize(message.length + padding + 1 + 64);
-  message.bits.set(message.length, true);
   message
     .bits
-    .write_u64_be(message.length as u64, message.bits.len() - 64);
+    .resize(message.length + padding + 1 + u64::BITS as usize);
+  message.bits.set(message.length, true);
+  message.bits.set_u64_be_aligned(
+    (message.bits.len() / u64::BITS as usize) - 1,
+    message.length as u64,
+  );
 }
 
 pub fn sha1(data: Vec<u8>) -> [u32; 5] {
@@ -74,7 +77,7 @@ pub fn sha1(data: Vec<u8>) -> [u32; 5] {
 
     (0..80).for_each(|t| {
       w[t] = if t <= 15 {
-        message.bits.get_u32_be(i * 16 + t)
+        message.bits.set_u32_be_aligned(i * 16 + t)
       } else {
         (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]).rotate_left(1)
       }
@@ -122,34 +125,43 @@ mod tests {
     let b: u8 = 0x62;
     let c: u8 = 0x63;
 
-    let mut message = Message::from_bytes(vec![a, b, c]);
+    let data = vec![a, b, c];
+    let bit_length = 8 * data.len() as u64;
+
+    let mut message = Message::from_bytes(data);
     pad(&mut message);
 
     assert_eq!(message.bits.len(), 512);
 
-    assert_eq!(message.bits.get_u64_be(0), 0x6162638000000000);
-    assert_eq!(message.bits.get_u64_be(1), 0);
-    assert_eq!(message.bits.get_u64_be(2), 0);
-    assert_eq!(message.bits.get_u64_be(3), 0);
-    assert_eq!(message.bits.get_u64_be(4), 0);
-    assert_eq!(message.bits.get_u64_be(5), 0);
-    assert_eq!(message.bits.get_u64_be(6), 0);
-    assert_eq!(message.bits.get_u64_be(7), 8 * 3);
+    assert_eq!(message.bits.get_u64_be_aligned(0), 0x6162638000000000);
+    assert_eq!(message.bits.get_u64_be_aligned(1), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(2), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(3), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(4), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(5), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(6), 0);
+    assert_eq!(message.bits.get_u64_be_aligned(7), bit_length);
   }
 
+  // https://di-mgt.com.au/sha_testvectors.html
   #[test]
-  fn sha1_test() {
-    // https://di-mgt.com.au/sha_testvectors.html
+  fn basic() {
     assert_eq!(
       sha1(String::from("abc").into_bytes()),
       [0xa9993e36, 0x4706816a, 0xba3e2571, 0x7850c26c, 0x9cd0d89d]
     );
+  }
 
+  #[test]
+  fn empty() {
     assert_eq!(
       sha1(String::from("").into_bytes()),
       [0xda39a3ee, 0x5e6b4b0d, 0x3255bfef, 0x95601890, 0xafd80709]
     );
+  }
 
+  #[test]
+  fn boundary() {
     assert_eq!(
       sha1(
         String::from(
@@ -170,7 +182,10 @@ mod tests {
       ),
       [0xa49b2446, 0xa02c645b, 0xf419f995, 0xb6709125, 0x3a04a259]
     );
+  }
 
+  #[test]
+  fn long_hash() {
     let mut one_million_a = Vec::<u8>::with_capacity(1000000);
     one_million_a.resize(1000000, b'a');
 

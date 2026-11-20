@@ -1,3 +1,10 @@
+const U8_BITS: usize = 8;
+const U32_BITS: usize = 32;
+const U64_BITS: usize = 64;
+
+const U32_BYTES: usize = U32_BITS / 8;
+const U64_BYTES: usize = U64_BITS / 8;
+
 pub struct BitVec {
   bits: Vec<u8>,
   length: usize,
@@ -12,7 +19,7 @@ impl BitVec {
   }
 
   pub fn from_bytes(bits: Vec<u8>) -> Self {
-    let bit_length = bits.len() * 8;
+    let bit_length = bits.len() * U8_BITS;
 
     Self {
       bits,
@@ -20,11 +27,11 @@ impl BitVec {
     }
   }
 
-  pub fn get(&self, bit: usize) -> Option<bool> {
+  pub fn get(&self, bit: usize) -> bool {
     let byte = Self::get_containing_byte_index(bit);
     let bit_index = Self::get_bit_index(bit);
 
-    self.bits.get(byte).map(|byte| byte & (1 << bit_index) != 0)
+    self.bits[byte] & (1 << bit_index) != 0
   }
 
   pub fn set(&mut self, bit: usize, value: bool) {
@@ -39,7 +46,7 @@ impl BitVec {
   }
 
   pub fn append(&mut self, bit: bool) {
-    if self.len().is_multiple_of(8) {
+    if self.len().is_multiple_of(u8::BITS as usize) {
       self.bits.push(0);
     }
 
@@ -61,49 +68,92 @@ impl BitVec {
     self.bits.resize(Self::bytes_required(length), 0);
   }
 
-  pub fn get_byte(&self, byte: usize) -> &u8 {
-    &self.bits[byte]
+  pub fn get_byte_unaligned(&self, bit_offset: usize) -> u8 {
+    let mut byte: u8 = 0;
+
+    for i in 0..U8_BITS {
+      byte |= (self.get(bit_offset + i) as u8) << Self::get_bit_index(i);
+    }
+
+    byte
   }
 
-  pub fn write_byte(&mut self, index: usize, byte: u8) {
-    self.bits[index] = byte;
+  pub fn get_byte_aligned(&self, index: usize) -> &u8 {
+    &self.bits[index]
   }
 
-  pub fn get_u32_be(&self, index: usize) -> u32 {
-    let byte_index = index * (32 / 8);
-
-    u32::from_be_bytes([
-      *self.get_byte(byte_index),
-      *self.get_byte(byte_index + 1),
-      *self.get_byte(byte_index + 2),
-      *self.get_byte(byte_index + 3),
-    ])
-  }
-
-  pub fn get_u64_be(&self, index: usize) -> u64 {
-    let byte_index = index * (64 / 8);
-
-    u64::from_be_bytes([
-      *self.get_byte(byte_index),
-      *self.get_byte(byte_index + 1),
-      *self.get_byte(byte_index + 2),
-      *self.get_byte(byte_index + 3),
-      *self.get_byte(byte_index + 4),
-      *self.get_byte(byte_index + 5),
-      *self.get_byte(byte_index + 6),
-      *self.get_byte(byte_index + 7),
-    ])
-  }
-
-  pub fn write_u64_be(&mut self, value: u64, bit_offset: usize) {
-    let end = bit_offset + 64;
+  pub fn set_byte_unaligned(&mut self, bit_offset: usize, value: u8) {
+    let end = bit_offset + U8_BITS;
 
     if end >= self.len() {
       self.resize(end);
     }
 
-    for i in 0..64usize {
-      self.set(bit_offset + i, value & (1 << (63 - i)) != 0);
+    for i in 0..U8_BITS {
+      self.set(bit_offset + i, value & (1 << Self::get_bit_index(i)) != 0);
+    }
+  }
+
+  pub fn set_byte_aligned(&mut self, index: usize, value: u8) {
+    self.bits[index] = value;
+  }
+
+  pub fn set_u32_be_aligned(&self, index: usize) -> u32 {
+    let byte_index = index * U32_BYTES;
+
+    u32::from_be_bytes([
+      *self.get_byte_aligned(byte_index),
+      *self.get_byte_aligned(byte_index + 1),
+      *self.get_byte_aligned(byte_index + 2),
+      *self.get_byte_aligned(byte_index + 3),
+    ])
+  }
+
+  pub fn get_u64_be_unaligned(&self, bit_offset: usize) -> u64 {
+    u64::from_be_bytes([
+      self.get_byte_unaligned(bit_offset),
+      self.get_byte_unaligned(bit_offset + U8_BITS),
+      self.get_byte_unaligned(bit_offset + 2 * U8_BITS),
+      self.get_byte_unaligned(bit_offset + 3 * U8_BITS),
+      self.get_byte_unaligned(bit_offset + 4 * U8_BITS),
+      self.get_byte_unaligned(bit_offset + 5 * U8_BITS),
+      self.get_byte_unaligned(bit_offset + 6 * U8_BITS),
+      self.get_byte_unaligned(bit_offset + 7 * U8_BITS),
+    ])
+  }
+
+  pub fn get_u64_be_aligned(&self, index: usize) -> u64 {
+    let byte_index = index * U64_BYTES;
+
+    u64::from_be_bytes([
+      *self.get_byte_aligned(byte_index),
+      *self.get_byte_aligned(byte_index + 1),
+      *self.get_byte_aligned(byte_index + 2),
+      *self.get_byte_aligned(byte_index + 3),
+      *self.get_byte_aligned(byte_index + 4),
+      *self.get_byte_aligned(byte_index + 5),
+      *self.get_byte_aligned(byte_index + 6),
+      *self.get_byte_aligned(byte_index + 7),
+    ])
+  }
+
+  pub fn set_u64_be_unaligned(&mut self, bit_offset: usize, value: u64) {
+    let end = bit_offset + U64_BITS;
+
+    if end >= self.len() {
+      self.resize(end);
+    }
+
+    for i in 0..U64_BITS {
+      self.set(bit_offset + i, value & (1 << (U64_BITS - 1 - i)) != 0);
+    }
+  }
+
+  pub fn set_u64_be_aligned(&mut self, index: usize, value: u64) {
+    let bytes = value.to_be_bytes();
+
+    for i in 0..U64_BYTES {
+      self.bits[index * U64_BYTES + i] = bytes[i]
     }
   }
 
@@ -118,15 +168,15 @@ impl BitVec {
   }
 
   pub fn get_containing_byte_index(bit: usize) -> usize {
-    bit / 8
+    bit / U8_BITS
   }
 
   fn get_bit_index(bit: usize) -> usize {
-    7 - (bit % 8)
+    U8_BITS - 1 - (bit % U8_BITS)
   }
 
   fn bytes_required(bits: usize) -> usize {
-    bits.div_ceil(8)
+    bits.div_ceil(U8_BITS)
   }
 }
 
@@ -135,25 +185,42 @@ mod tests {
   use super::*;
 
   #[test]
-  fn get_and_set() {
+  fn get_and_set_bit() {
     let mut bit_vec = BitVec::new(128);
-    assert_eq!(bit_vec.bits.len(), 16);
 
-    assert_eq!(bit_vec.get(14), Some(false));
+    assert!(!bit_vec.get(14));
     assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
 
     bit_vec.set(14, true);
-    assert_eq!(bit_vec.get(14), Some(true));
+    assert!(bit_vec.get(14));
     assert_eq!(*bit_vec.get_containing_byte(14), 2u8);
 
     bit_vec.set(14, false);
-    assert_eq!(bit_vec.get(14), Some(false));
+    assert!(!bit_vec.get(14));
     assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
+  }
 
-    bit_vec.write_u64_be(!0, 4);
-    assert_eq!(bit_vec.bits[0], 0b00001111);
-    assert_eq!(bit_vec.bits[1], 0b11111111);
-    assert_eq!(bit_vec.get_u32_be(0), 0x0fffffff);
-    assert_eq!(bit_vec.get_u64_be(0), 0x0fffffffffffffff);
+  #[test]
+  fn get_and_set_byte() {
+    let mut bit_vec = BitVec::new(16);
+
+    let value: u8 = 0x4a;
+
+    bit_vec.set_byte_unaligned(4, value);
+    let read_value = bit_vec.get_byte_unaligned(4);
+
+    assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
+  }
+
+  #[test]
+  fn get_and_set_u64() {
+    let mut bit_vec = BitVec::new(128);
+
+    let value: u64 = 0x0123456789abcdef;
+
+    bit_vec.set_u64_be_unaligned(4, value);
+    let read_value = bit_vec.get_u64_be_unaligned(4);
+
+    assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
   }
 }
