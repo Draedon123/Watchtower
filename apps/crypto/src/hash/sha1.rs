@@ -63,7 +63,7 @@ fn pad(message: &mut Message) {
     .write_u64_be(message.length as u64, message.bits.len() - 64);
 }
 
-fn sha1(data: Vec<u8>) -> [u32; 5] {
+pub fn sha1(data: Vec<u8>) -> [u32; 5] {
   let mut message = Message::from_bytes(data);
   pad(&mut message);
 
@@ -160,9 +160,16 @@ mod tests {
       [0x84983e44, 0x1c3bd26e, 0xbaae4aa1, 0xf95129e5, 0xe54670f1]
     );
 
-    assert_eq!(sha1(
-      String::from("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu").into_bytes(),
-    ),[0xa49b2446, 0xa02c645b, 0xf419f995, 0xb6709125, 0x3a04a259]);
+    assert_eq!(
+      sha1(
+        String::from(
+          "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn\
+      hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
+        )
+        .into_bytes(),
+      ),
+      [0xa49b2446, 0xa02c645b, 0xf419f995, 0xb6709125, 0x3a04a259]
+    );
 
     let mut one_million_a = Vec::<u8>::with_capacity(1000000);
     one_million_a.resize(1000000, b'a');
