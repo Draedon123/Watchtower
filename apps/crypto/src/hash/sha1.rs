@@ -77,7 +77,7 @@ pub fn sha1(data: Vec<u8>) -> [u32; 5] {
 
     (0..80).for_each(|t| {
       w[t] = if t <= 15 {
-        message.bits.set_u32_be_aligned(i * 16 + t)
+        message.bits.get_u32_be_aligned(i * 16 + t)
       } else {
         (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]).rotate_left(1)
       }
