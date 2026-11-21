@@ -7,14 +7,12 @@ fn main() {
   let mut total_elapsed = 0.0;
 
   for _ in 0..num_trials {
-    let test_128_mib = String::from(
-      "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno",
-    )
-    .repeat(2usize.pow(21))
-    .into_bytes();
+    let test_128_mib =
+      b"abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"
+        .repeat(2usize.pow(21));
 
     let start = Instant::now();
-    let _ = sha1(test_128_mib);
+    let _ = sha1(&test_128_mib);
     let elapsed = Instant::elapsed(&start).as_secs_f64();
     let throughput_mib_s = 128.0 / elapsed;
 

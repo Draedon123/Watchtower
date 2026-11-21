@@ -3,13 +3,13 @@ use crate::bit_vec::BitVec;
 const INITIAL_HASH: [u32; 5] =
   [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
 
-struct Message {
+struct Message<'a> {
   pub length: usize,
-  pub bits: BitVec,
+  pub bits: BitVec<'a>,
 }
 
-impl Message {
-  pub fn from_bytes(bytes: Vec<u8>) -> Self {
+impl<'a> Message<'a> {
+  pub fn from_bytes(bytes: &'a [u8]) -> Self {
     let length = bytes.len() * 8;
     let bits = BitVec::from_bytes(bytes);
 
@@ -66,7 +66,7 @@ fn pad(message: &mut Message) {
   );
 }
 
-pub fn sha1(data: Vec<u8>) -> [u32; 5] {
+pub fn sha1(data: &[u8]) -> [u32; 5] {
   let mut message = Message::from_bytes(data);
   pad(&mut message);
 
@@ -128,7 +128,7 @@ mod tests {
     let data = vec![a, b, c];
     let bit_length = 8 * data.len() as u64;
 
-    let mut message = Message::from_bytes(data);
+    let mut message = Message::from_bytes(&data);
     pad(&mut message);
 
     assert_eq!(message.bits.len(), 512);
@@ -147,7 +147,7 @@ mod tests {
   #[test]
   fn basic() {
     assert_eq!(
-      sha1(String::from("abc").into_bytes()),
+      sha1(b"abc"),
       [0xa9993e36, 0x4706816a, 0xba3e2571, 0x7850c26c, 0x9cd0d89d]
     );
   }
@@ -155,7 +155,7 @@ mod tests {
   #[test]
   fn empty() {
     assert_eq!(
-      sha1(String::from("").into_bytes()),
+      sha1(b""),
       [0xda39a3ee, 0x5e6b4b0d, 0x3255bfef, 0x95601890, 0xafd80709]
     );
   }
@@ -163,22 +163,14 @@ mod tests {
   #[test]
   fn boundary() {
     assert_eq!(
-      sha1(
-        String::from(
-          "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
-        )
-        .into_bytes()
-      ),
+      sha1(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
       [0x84983e44, 0x1c3bd26e, 0xbaae4aa1, 0xf95129e5, 0xe54670f1]
     );
 
     assert_eq!(
       sha1(
-        String::from(
-          "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn\
-      hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"
-        )
-        .into_bytes(),
+        b"abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn\
+      hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
       ),
       [0xa49b2446, 0xa02c645b, 0xf419f995, 0xb6709125, 0x3a04a259]
     );
@@ -190,7 +182,7 @@ mod tests {
     one_million_a.resize(1000000, b'a');
 
     assert_eq!(
-      sha1(one_million_a),
+      sha1(&one_million_a),
       [0x34aa973c, 0xd4c4daa4, 0xf61eeb2b, 0xdbad2731, 0x6534016f]
     );
   }
@@ -198,14 +190,12 @@ mod tests {
   #[test]
   #[ignore = "expensive"]
   fn very_long_hash() {
-    let one_gb = String::from(
-      "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno",
-    )
-    .repeat(16777216)
-    .into_bytes();
+    let one_gb =
+      b"abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"
+        .repeat(16777216);
 
     assert_eq!(
-      sha1(one_gb),
+      sha1(&one_gb),
       [0x7789f0c9, 0xef7bfc40, 0xd9331114, 0x3dfbe69e, 0x2017f592]
     );
   }

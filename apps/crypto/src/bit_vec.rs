@@ -1,9 +1,11 @@
+use crate::split_slice::SplitSlice;
+
 const U8_BITS: usize = 8;
 
 macro_rules! impl_for_utype {
   // gbeu/gbea/sbeu/sbea = get/set big endian unaligned/aligned
   ($type: ident, $bytes: literal, $gbeu: ident, $gbea: ident, $sbeu: ident, $sbea: ident) => {
-    impl BitVec {
+    impl<'a> BitVec<'a> {
       pub fn $gbeu(&self, bit_offset: usize) -> $type {
         $type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(|i| {
           self.get_byte_unaligned(bit_offset + i * U8_BITS)
@@ -14,7 +16,7 @@ macro_rules! impl_for_utype {
         let byte_index = index * ($type::BITS as usize / 8);
 
         $type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(|i| {
-          *self.get_byte_aligned(byte_index + i)
+          self.get_byte_aligned(byte_index + i)
         }))
       }
 
@@ -37,7 +39,7 @@ macro_rules! impl_for_utype {
         let bytes = value.to_be_bytes();
 
         for i in 0..$bytes {
-          self.bits[index * $bytes + i] = bytes[i]
+          self.bits.set(index * $bytes + i, bytes[i]);
         }
       }
     }
@@ -71,24 +73,26 @@ impl_for_utype!(
   set_u64_be_aligned
 );
 
-pub struct BitVec {
-  bits: Vec<u8>,
+pub struct BitVec<'a> {
+  bits: SplitSlice<'a>,
   length: usize,
 }
 
-impl BitVec {
-  pub fn new(length: usize) -> Self {
-    BitVec {
-      bits: vec![0; Self::bytes_required(length)],
-      length,
-    }
-  }
-
-  pub fn from_bytes(bits: Vec<u8>) -> Self {
+impl<'a> BitVec<'a> {
+  pub fn from_bytes(bits: &'a [u8]) -> Self {
     let bit_length = bits.len() * U8_BITS;
 
     Self {
-      bits,
+      bits: SplitSlice::new(bits, Vec::new()),
+      length: bit_length,
+    }
+  }
+
+  pub fn from_bytes_mut(bits: &'a mut [u8]) -> Self {
+    let bit_length = bits.len() * U8_BITS;
+
+    Self {
+      bits: SplitSlice::with_padding(&[], bits),
       length: bit_length,
     }
   }
@@ -97,7 +101,7 @@ impl BitVec {
     let byte = Self::get_containing_byte_index(bit);
     let bit_index = Self::get_bit_index(bit);
 
-    self.bits[byte] & (1 << bit_index) != 0
+    self.bits.get(byte) & (1 << bit_index) != 0
   }
 
   pub fn set(&mut self, bit: usize, value: bool) {
@@ -144,8 +148,8 @@ impl BitVec {
     byte
   }
 
-  pub fn get_byte_aligned(&self, index: usize) -> &u8 {
-    &self.bits[index]
+  pub fn get_byte_aligned(&self, index: usize) -> u8 {
+    self.bits.get(index)
   }
 
   pub fn set_byte_unaligned(&mut self, bit_offset: usize, value: u8) {
@@ -161,17 +165,17 @@ impl BitVec {
   }
 
   pub fn set_byte_aligned(&mut self, index: usize, value: u8) {
-    self.bits[index] = value;
+    self.bits.set(index, value);
   }
 
   pub fn get_containing_byte(&self, bit: usize) -> &u8 {
     let byte_index = Self::get_containing_byte_index(bit);
-    &self.bits[byte_index]
+    self.bits.get_ref(byte_index)
   }
 
   fn get_containing_byte_mut(&mut self, bit: usize) -> &mut u8 {
     let byte_index = Self::get_containing_byte_index(bit);
-    &mut self.bits[byte_index]
+    self.bits.get_mut_ref(byte_index)
   }
 
   pub fn get_containing_byte_index(bit: usize) -> usize {
@@ -193,7 +197,8 @@ mod tests {
 
   #[test]
   fn get_and_set_bit() {
-    let mut bit_vec = BitVec::new(128);
+    let mut data: Vec<u8> = vec![0; 16];
+    let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
     assert!(!bit_vec.get(14));
     assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
@@ -209,7 +214,8 @@ mod tests {
 
   #[test]
   fn get_and_set_byte() {
-    let mut bit_vec = BitVec::new(16);
+    let mut data: Vec<u8> = vec![0; 16];
+    let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
     let value: u8 = 0x4a;
 
@@ -221,7 +227,8 @@ mod tests {
 
   #[test]
   fn get_and_set_u16() {
-    let mut bit_vec = BitVec::new(32);
+    let mut data: Vec<u8> = vec![0; 32];
+    let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
     let value: u16 = 0x0123;
 
@@ -233,7 +240,8 @@ mod tests {
 
   #[test]
   fn get_and_set_u32() {
-    let mut bit_vec = BitVec::new(64);
+    let mut data: Vec<u8> = vec![0; 64];
+    let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
     let value: u32 = 0x01234567;
 
@@ -245,7 +253,8 @@ mod tests {
 
   #[test]
   fn get_and_set_u64() {
-    let mut bit_vec = BitVec::new(128);
+    let mut data: Vec<u8> = vec![0; 128];
+    let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
     let value: u64 = 0x0123456789abcdef;
 
