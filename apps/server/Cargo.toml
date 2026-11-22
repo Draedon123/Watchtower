@@ -6,6 +6,12 @@ edition = "2024"
 [dependencies]
 http = { path = "../http" }
 config_parser = { path = "../config_parser" }
-tokio = { version = "1.54.1", features = ["full"] }
+tokio = { version = "1.54.1", features = [
+  "macros",
+  "net",
+  "io-util",
+  "test-util",
+  "rt-multi-thread",
+] }
 tokio-stream = "0.1.19"
 misc = { path = "../misc" }
