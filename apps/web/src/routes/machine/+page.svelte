@@ -66,6 +66,11 @@
 
 <h1>{machineName}</h1>
 
+<p>
+  Placeholder! This page is meant to display more detailed information but has
+  not been implemented yet
+</p>
+
 {#if machineExists}
   <div class="card">
     {#if data === null}
