@@ -78,4 +78,12 @@ impl<'a> SplitSlice<'a> {
 
     self.mutable.resize(padding_length, value);
   }
+
+  pub fn len(&self) -> usize {
+    self.immutable.len() + self.mutable.len()
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.immutable.is_empty() && self.mutable.is_empty()
+  }
 }

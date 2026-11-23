@@ -97,6 +97,15 @@ impl<'a> BitVec<'a> {
     }
   }
 
+  pub fn from_split_slice(slice: SplitSlice<'a>) -> Self {
+    let bit_length = slice.len() * U8_BITS;
+
+    Self {
+      bits: slice,
+      length: bit_length,
+    }
+  }
+
   pub fn get(&self, bit: usize) -> bool {
     let byte = Self::get_containing_byte_index(bit);
     let bit_index = Self::get_bit_index(bit);
