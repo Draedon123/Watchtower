@@ -24,7 +24,7 @@ pub async fn try_register(
 ) -> Result<(), String> {
   let mut request = client
     .request(
-      HttpMethod::Post(),
+      HttpMethod::Post,
       config
         .watchtower_uri
         .with_path(format!("/machine/register/{hostname}")),

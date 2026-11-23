@@ -15,7 +15,7 @@ pub async fn send_to_watchtower<T: Bridge + ?Sized>(
 ) -> Result<(), String> {
   let mut request = http_client
     .request(
-      HttpMethod::Post(),
+      HttpMethod::Post,
       config
         .watchtower_uri
         .with_path(format!("/machine/{hostname}/set")),
