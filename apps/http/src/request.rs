@@ -16,7 +16,7 @@ pub struct Request {
 impl Request {
   pub fn new() -> Self {
     Self {
-      method: HttpMethod::Get(),
+      method: HttpMethod::Get,
       uri: Uri::default(),
       headers: Headers::new(),
       body: Body::None,
@@ -86,7 +86,7 @@ mod tests {
   fn start_lines() {
     assert_eq!(
       Request::parse_start_line("POST /users HTTP/1.1"),
-      Ok((HttpMethod::Post(), Uri::new("/users").unwrap()))
+      Ok((HttpMethod::Post, Uri::new("/users").unwrap()))
     );
   }
 }

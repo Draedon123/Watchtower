@@ -82,7 +82,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let password = Arc::new(config.password.clone());
 
-  routes.route("/", HttpMethod::Get(), |_, mut response| {
+  routes.route("/", HttpMethod::Get, |_, mut response| {
     Box::pin(async move {
       response.status_code = HttpStatusCode::Status200;
 
@@ -93,7 +93,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let data_reader = data.clone();
   routes.route(
     "/machine/[machine]/get",
-    HttpMethod::Post(),
+    HttpMethod::Post,
     move |request, mut response| {
       let data = data_reader.clone();
 
@@ -145,37 +145,33 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   );
 
   let data_reader = data.clone();
-  routes.route(
-    "/machine/list",
-    HttpMethod::Post(),
-    move |_, mut response| {
-      let data = data_reader.clone();
+  routes.route("/machine/list", HttpMethod::Post, move |_, mut response| {
+    let data = data_reader.clone();
 
-      Box::pin(async move {
-        {
-          response.status_code = HttpStatusCode::Status200;
-          response.body = Body::from(
-            data
-              .read()
-              .await
-              .list_machines()
-              .iter()
-              .map(|string| string.as_str())
-              .collect::<Vec<_>>()
-              .join("\n"),
-          );
+    Box::pin(async move {
+      {
+        response.status_code = HttpStatusCode::Status200;
+        response.body = Body::from(
+          data
+            .read()
+            .await
+            .list_machines()
+            .iter()
+            .map(|string| string.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        );
 
-          response
-        }
-      })
-    },
-  );
+        response
+      }
+    })
+  });
 
   let data_writer = data.clone();
   let server_password = password.clone();
   routes.route(
     "/machine/register/[machine]",
-    HttpMethod::Post(),
+    HttpMethod::Post,
     move |request, mut response| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
@@ -210,7 +206,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_writer = data.clone();
   let server_password = password.clone();
-  routes.route("/machine/[machine]/set", HttpMethod::Post(), move |request, mut response| {
+  routes.route("/machine/[machine]/set", HttpMethod::Post, move |request, mut response| {
     let data = data_writer.clone();
     let server_password = Arc::clone(&server_password);
 
@@ -254,7 +250,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   let data_reader = data.clone();
   routes.route(
     "/stats/[key]",
-    HttpMethod::Post(),
+    HttpMethod::Post,
     move |request, mut response| {
       let data = data_reader.clone();
 
