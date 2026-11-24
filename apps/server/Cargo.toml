@@ -15,3 +15,4 @@ tokio = { version = "1.54.1", features = [
 ] }
 tokio-stream = "0.1.19"
 misc = { path = "../misc" }
+websocket = { path = "../websocket" }

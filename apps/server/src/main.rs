@@ -1,9 +1,11 @@
+use http::http_connection::HttpConnection;
 use http::response::Response;
 use http::{body::Body, header::Headers};
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use watchtower_server::route::RouteResult;
+use websocket::server::Server as WebSocketServer;
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -13,7 +15,7 @@ use watchtower_server::{
   data::{Data, DataType},
   help::display_help_message,
   route::Routes,
-  server::{Server, ServerRequest},
+  server::{Server as HttpServer, ServerRequest},
 };
 
 #[tokio::main]
@@ -28,15 +30,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   };
 
   let data = Arc::new(RwLock::new(Data::new()));
-  let mut server = Server::new(&config)?;
-  server.routes = Arc::new(get_routes(&config, &data));
+
+  let mut http_server = HttpServer::new(&config)?;
+  let websocket_server = Arc::new(RwLock::new(WebSocketServer::new()));
+
+  http_server.routes = Arc::new(get_routes(&config, &data, &websocket_server));
 
   let default_response_headers =
     Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
-  server.set_default_response_headers(default_response_headers);
+  http_server.set_default_response_headers(default_response_headers);
 
   let data_writer = data.clone();
-  server.set_on_connection_close(move |_, request_id| {
+  http_server.set_on_connection_close(move |_, request_id| {
     let data = data_writer.clone();
 
     async move {
@@ -48,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
   });
 
-  server.start().await?;
+  http_server.start().await?;
 
   Ok(())
 }
@@ -78,7 +83,11 @@ fn respond_if_unauthenticated(
   authenticated
 }
 
-fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
+fn get_routes(
+  config: &Config,
+  data: &Arc<RwLock<Data>>,
+  websocket_server: &Arc<RwLock<WebSocketServer>>,
+) -> Routes {
   let mut routes = Routes::new();
 
   let password = Arc::new(config.password.clone());
@@ -86,6 +95,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route("/", HttpMethod::Get, |_, response, connection| {
     Box::pin(async move {
       response.status_code = HttpStatusCode::Status200;
+      response.body = Body::Fixed(String::from("ok"));
 
       RouteResult::Respond(connection)
     })
@@ -302,6 +312,41 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         response.body = Body::from(serialised_data);
 
         RouteResult::Respond(connection)
+      })
+    },
+  );
+
+  let websocket_server = websocket_server.clone();
+  routes.route(
+    "/machine/[machine]/websocket",
+    HttpMethod::Get,
+    move |request, _, connection| {
+      let websocket_server = websocket_server.clone();
+
+      Box::pin(async move {
+        let result = websocket_server
+          .write()
+          .await
+          .add_client(&request.http_request, connection.into_stream());
+
+        if let Err((error, stream)) = result {
+          let mut connection = HttpConnection::new(stream);
+          let mut response = Response::new();
+
+          response.status_code = HttpStatusCode::Status400;
+          response
+            .headers
+            .set_header("Connection", "close")
+            .set_header("Access-Control-Allow-Origin", "*");
+          response.body = Body::Fixed(error);
+          if let Err(error) = connection.send_response(&mut response).await {
+            eprintln!(
+              "Failed to send response for failed WebSocket connection: {error}"
+            );
+          };
+        };
+
+        RouteResult::TakeOver
       })
     },
   );

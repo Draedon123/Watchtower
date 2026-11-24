@@ -364,6 +364,7 @@ dependencies = [
  "misc",
  "tokio",
  "tokio-stream",
+ "websocket",
 ]
 
 [[package]]
