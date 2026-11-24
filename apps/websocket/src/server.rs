@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 
-use crypto::hash::Sha1;
 use http::{
-  header::Headers, http_connection::HttpConnection,
+  header::Headers, http_connection::HttpConnectionOwned,
   http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
 
-use crate::{client::Client, handshake::Handshake};
-
-const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+use crate::{client::Client, handshake::Handshake, utils::get_accept_key};
 
 pub struct Server {
   pub clients: HashMap<String, Client>,
@@ -25,8 +22,8 @@ impl Server {
   pub async fn add_client(
     &mut self,
     request: &Request,
-    mut connection: HttpConnection,
-  ) -> Result<(), (String, HttpConnection)> {
+    mut connection: HttpConnectionOwned,
+  ) -> Result<(), (String, HttpConnectionOwned)> {
     let handshake = Handshake::from_request(request);
 
     match handshake {
@@ -55,7 +52,7 @@ impl Server {
 
   async fn accept_handshake(
     &self,
-    connection: &mut HttpConnection,
+    connection: &mut HttpConnectionOwned,
     handshake: &Handshake,
   ) -> Result<(), String> {
     let mut response = Response::new();
@@ -65,23 +62,10 @@ impl Server {
     response.headers = Headers::from(vec![
       ("Upgrade", "websocket"),
       ("Connection", "Upgrade"),
-      (
-        "Sec-WebSocket-Accept",
-        &Self::get_accept_key(&handshake.key),
-      ),
+      ("Sec-WebSocket-Accept", &get_accept_key(&handshake.key)),
     ]);
 
     connection.send_response(&mut response).await
-  }
-
-  fn get_accept_key(key: &str) -> String {
-    let mut concatenation =
-      String::with_capacity(key.len() + WEBSOCKET_GUID.len());
-
-    concatenation.push_str(key);
-    concatenation.push_str(WEBSOCKET_GUID);
-
-    Sha1::new(concatenation.as_bytes()).to_base64()
   }
 }
 

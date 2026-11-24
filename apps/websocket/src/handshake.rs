@@ -1,6 +1,8 @@
 use crypto::base_64;
-use http::{header::Headers, http_method::HttpMethod, request::Request};
+use http::{http_method::HttpMethod, request::Request};
 use misc::uri::Uri;
+
+use crate::utils::header_to_vec;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Handshake {
@@ -62,10 +64,10 @@ impl Handshake {
     }
 
     let protocols: Vec<_> =
-      Self::header_to_vec(&request.headers, "Sec-Websocket-Protocol");
+      header_to_vec(&request.headers, "Sec-Websocket-Protocol");
     // TODO: extract into struct and handle parameters properly
     let extensions: Vec<_> =
-      Self::header_to_vec(&request.headers, "Sec-Websocket-Extensions");
+      header_to_vec(&request.headers, "Sec-Websocket-Extensions");
 
     let version = request
       .headers
@@ -103,23 +105,11 @@ impl Handshake {
 
     resource_name
   }
-
-  fn header_to_vec(headers: &Headers, header: &str) -> Vec<String> {
-    headers
-      .get_header(header)
-      .map(|headers| {
-        headers
-          .split(',')
-          .map(|protocol| protocol.trim().to_owned())
-          .collect()
-      })
-      .unwrap_or_default()
-  }
 }
 
 #[cfg(test)]
 mod tests {
-  use http::body::Body;
+  use http::{body::Body, header::Headers};
 
   use super::*;
 

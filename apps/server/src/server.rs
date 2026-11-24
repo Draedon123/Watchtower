@@ -3,7 +3,7 @@ use crate::{
   route::{RouteResult, Routes},
 };
 use http::{
-  header::Headers, http_connection::HttpConnection, request::Request,
+  header::Headers, http_connection::HttpConnectionOwned, request::Request,
   response::Response,
 };
 use misc::uri::Uri;
@@ -31,7 +31,7 @@ pub struct Server<'a> {
 
 pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type OnConnectionClose =
-  Arc<dyn Fn(HttpConnection, u64) -> OnConnectionCloseFuture + Send + Sync>;
+  Arc<dyn Fn(HttpConnectionOwned, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
 impl<'a> Server<'a> {
   pub fn new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
@@ -84,7 +84,7 @@ impl<'a> Server<'a> {
 
   pub fn set_on_connection_close<F, Fut>(&mut self, callback: F)
   where
-    F: Fn(HttpConnection, u64) -> Fut + Send + Sync + 'static,
+    F: Fn(HttpConnectionOwned, u64) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = ()> + Send + 'static,
   {
     self.on_connection_close = Some(Arc::new(move |stream, request_id| {
@@ -103,7 +103,7 @@ impl<'a> Server<'a> {
     on_connection_close: Option<OnConnectionClose>,
     request_id: u64,
   ) {
-    let mut http_connection = HttpConnection::new(stream);
+    let mut http_connection = HttpConnectionOwned::new(stream);
 
     loop {
       let http_request =

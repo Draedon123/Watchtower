@@ -8,3 +8,4 @@ tokio = "1.54.1"
 http = { path = "../http" }
 misc = { path = "../misc" }
 crypto = { path = "../crypto" }
+rand = "0.10.4"
