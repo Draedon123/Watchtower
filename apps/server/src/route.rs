@@ -1,6 +1,8 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
-use http::{http_method::HttpMethod, response::Response};
+use http::{
+  http_connection::HttpConnection, http_method::HttpMethod, response::Response,
+};
 
 use crate::server::ServerRequest;
 
@@ -10,13 +12,22 @@ pub enum URLSection {
 }
 
 pub type RouteCallbackFuture<'a> =
-  Pin<Box<dyn Future<Output = Response> + Send + 'a>>;
+  Pin<Box<dyn Future<Output = RouteResult> + Send + 'a>>;
 
 pub type RouteCallback = Arc<
-  dyn for<'a> Fn(&'a ServerRequest, Response) -> RouteCallbackFuture<'a>
+  dyn for<'a> Fn(
+      &'a ServerRequest,
+      &'a mut Response,
+      HttpConnection,
+    ) -> RouteCallbackFuture<'a>
     + Send
     + Sync,
 >;
+
+pub enum RouteResult {
+  Respond(HttpConnection),
+  TakeOver,
+}
 
 pub struct Routes {
   pub routes: Vec<Route>,
@@ -29,7 +40,11 @@ impl Routes {
 
   pub fn route<F>(&mut self, path: &str, method: HttpMethod, on_request: F)
   where
-    F: for<'a> Fn(&'a ServerRequest, Response) -> RouteCallbackFuture<'a>
+    F: for<'a> Fn(
+        &'a ServerRequest,
+        &'a mut Response,
+        HttpConnection,
+      ) -> RouteCallbackFuture<'a>
       + Send
       + Sync
       + 'static,

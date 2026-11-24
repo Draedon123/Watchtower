@@ -1,4 +1,7 @@
-use crate::{config::Config, route::Routes};
+use crate::{
+  config::Config,
+  route::{RouteResult, Routes},
+};
 use http::{
   header::Headers, http_connection::HttpConnection, request::Request,
   response::Response,
@@ -100,11 +103,11 @@ impl<'a> Server<'a> {
     on_connection_close: Option<OnConnectionClose>,
     request_id: u64,
   ) {
-    let mut connection = HttpConnection::new(stream);
+    let mut http_connection = HttpConnection::new(stream);
 
     loop {
       let http_request =
-        match Request::read_from_buffer(connection.get_reader()).await {
+        match Request::read_from_buffer(http_connection.get_reader()).await {
           Ok(request) => request,
           Err(error) => {
             eprintln!("Failed to read incoming TcpStream: {error}");
@@ -157,13 +160,25 @@ impl<'a> Server<'a> {
         Some(route) => {
           response.headers = default_response_headers.clone();
 
-          let mut response = (route.callback)(&request, response).await;
+          let result =
+            (route.callback)(&request, &mut response, http_connection).await;
 
-          if let Err(error) = connection.send_response(&mut response).await {
-            eprintln!(
-              "Failed to serve {} route \"{}\": {error}",
-              request.http_request.method, request.http_request.uri.path
-            );
+          match result {
+            RouteResult::Respond(connection) => {
+              http_connection = connection;
+
+              if let Err(error) =
+                http_connection.send_response(&mut response).await
+              {
+                eprintln!(
+                  "Failed to serve {} route \"{}\": {error}",
+                  request.http_request.method, request.http_request.uri.path
+                );
+              };
+            }
+            RouteResult::TakeOver => {
+              return;
+            }
           };
         }
         None => {
@@ -173,7 +188,8 @@ impl<'a> Server<'a> {
 
           response.status_code =
             http::http_status_codes::HttpStatusCode::Status404;
-          if let Err(error) = connection.send_response(&mut response).await {
+          if let Err(error) = http_connection.send_response(&mut response).await
+          {
             eprintln!(
               "Failed to send 404 for {request_method} request for route {request_path}: {error}"
             );
@@ -187,7 +203,7 @@ impl<'a> Server<'a> {
     }
 
     if let Some(callback) = Option::as_ref(&on_connection_close) {
-      callback(connection, request_id).await;
+      callback(http_connection, request_id).await;
     };
   }
 }

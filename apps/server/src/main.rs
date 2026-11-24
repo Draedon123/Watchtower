@@ -3,6 +3,7 @@ use http::{body::Body, header::Headers};
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use watchtower_server::route::RouteResult;
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -82,11 +83,11 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let password = Arc::new(config.password.clone());
 
-  routes.route("/", HttpMethod::Get, |_, mut response| {
+  routes.route("/", HttpMethod::Get, |_, response, connection| {
     Box::pin(async move {
       response.status_code = HttpStatusCode::Status200;
 
-      response
+      RouteResult::Respond(connection)
     })
   });
 
@@ -94,7 +95,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/machine/[machine]/get",
     HttpMethod::Post,
-    move |request, mut response| {
+    move |request, response, connection| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -103,7 +104,9 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let body = match request.http_request.body.utf8() {
           Ok(body) => body,
           Err(_) => {
-            return invalid_body_error(response);
+            invalid_body_error(response);
+
+            return RouteResult::Respond(connection);
           }
         };
 
@@ -114,7 +117,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
             Err(error) => {
               response.status_code = error.get_http_error_code();
               response.body = Body::from(error.to_string());
-              return response;
+              return RouteResult::Respond(connection);
             }
           }
         } else {
@@ -139,51 +142,52 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         response.status_code = HttpStatusCode::Status200;
         response.body = Body::from(serialised_data);
-        response
+
+        RouteResult::Respond(connection)
       })
     },
   );
 
   let data_reader = data.clone();
-  routes.route("/machine/list", HttpMethod::Post, move |_, mut response| {
-    let data = data_reader.clone();
+  routes.route(
+    "/machine/list",
+    HttpMethod::Post,
+    move |_, response, connection| {
+      let data = data_reader.clone();
 
-    Box::pin(async move {
-      {
-        response.status_code = HttpStatusCode::Status200;
-        response.body = Body::from(
-          data
-            .read()
-            .await
-            .list_machines()
-            .iter()
-            .map(|string| string.as_str())
-            .collect::<Vec<_>>()
-            .join("\n"),
-        );
+      Box::pin(async move {
+        {
+          response.status_code = HttpStatusCode::Status200;
+          response.body = Body::from(
+            data
+              .read()
+              .await
+              .list_machines()
+              .iter()
+              .map(|string| string.as_str())
+              .collect::<Vec<_>>()
+              .join("\n"),
+          );
 
-        response
-      }
-    })
-  });
+          RouteResult::Respond(connection)
+        }
+      })
+    },
+  );
 
   let data_writer = data.clone();
   let server_password = password.clone();
   routes.route(
     "/machine/register/[machine]",
     HttpMethod::Post,
-    move |request, mut response| {
+    move |request, response, connection| {
       let data = data_writer.clone();
       let server_password = Arc::clone(&server_password);
 
       Box::pin(async move {
         {
-          if !respond_if_unauthenticated(
-            request,
-            &mut response,
-            &server_password,
-          ) {
-            return response;
+          if !respond_if_unauthenticated(request, response, &server_password) {
+            return RouteResult::Respond(connection);
           };
 
           let machine = request.slugs.get("machine").unwrap();
@@ -198,7 +202,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
             HttpStatusCode::Status400
           };
 
-          response
+          RouteResult::Respond(connection)
         }
       })
     },
@@ -206,19 +210,21 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
   let data_writer = data.clone();
   let server_password = password.clone();
-  routes.route("/machine/[machine]/set", HttpMethod::Post, move |request, mut response| {
+  routes.route("/machine/[machine]/set", HttpMethod::Post, move |request, response, connection| {
     let data = data_writer.clone();
     let server_password = Arc::clone(&server_password);
 
     Box::pin(async move {
-      if !respond_if_unauthenticated(request, &mut response, &server_password) {
-        return response;
+      if !respond_if_unauthenticated(request, response, &server_password) {
+        return RouteResult::Respond(connection);
       };
 
       let body = match request.http_request.body.utf8() {
         Ok(body) => body,
         Err(_) => {
-          return invalid_body_error(response);
+          invalid_body_error(response);
+
+          return RouteResult::Respond(connection);
         }
       };
       let content: Vec<_> = body.lines().collect();
@@ -243,7 +249,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         }
       }
 
-      response
+      RouteResult::Respond(connection)
     })
   });
 
@@ -251,7 +257,7 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes.route(
     "/stats/[key]",
     HttpMethod::Post,
-    move |request, mut response| {
+    move |request, response, connection| {
       let data = data_reader.clone();
 
       Box::pin(async move {
@@ -261,7 +267,8 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
         let body = match request.http_request.body.utf8() {
           Ok(body) => body,
           Err(_) => {
-            return invalid_body_error(response);
+            invalid_body_error(response);
+            return RouteResult::Respond(connection);
           }
         };
         // TODO: optimise
@@ -293,7 +300,8 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
 
         response.status_code = HttpStatusCode::Status200;
         response.body = Body::from(serialised_data);
-        response
+
+        RouteResult::Respond(connection)
       })
     },
   );
@@ -301,7 +309,6 @@ fn get_routes(config: &Config, data: &Arc<RwLock<Data>>) -> Routes {
   routes
 }
 
-fn invalid_body_error(mut response: Response) -> Response {
+fn invalid_body_error(response: &mut Response) {
   response.status_code = HttpStatusCode::Status400;
-  response
 }
