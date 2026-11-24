@@ -1,4 +1,3 @@
-use http::http_connection::HttpConnection;
 use http::response::Response;
 use http::{body::Body, header::Headers};
 use std::env;
@@ -327,10 +326,10 @@ fn get_routes(
         let result = websocket_server
           .write()
           .await
-          .add_client(&request.http_request, connection.into_stream());
+          .add_client(&request.http_request, connection)
+          .await;
 
-        if let Err((error, stream)) = result {
-          let mut connection = HttpConnection::new(stream);
+        if let Err((error, mut connection)) = result {
           let mut response = Response::new();
 
           response.status_code = HttpStatusCode::Status400;
