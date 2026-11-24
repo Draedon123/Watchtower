@@ -4,6 +4,7 @@ use crypto::base_64;
 use http::{
   header::Headers, http_connection::HttpConnectionBorrowed,
   http_method::HttpMethod, http_status_codes::HttpStatusCode, request::Request,
+  response::Response,
 };
 use misc::uri::Uri;
 use tokio::net::TcpStream;
@@ -62,38 +63,16 @@ impl Client<Connecting> {
     match response {
       Ok(response) => match response.status_code {
         HttpStatusCode::Status101 => {
-          let upgrade = response.headers.get_header("Upgrade");
-          let connection = response.headers.get_header("Connection");
-          let accept = response.headers.get_header("Sec-WebSocket-Accept");
-          let accepted_extensions =
-            header_to_vec(&response.headers, "Sec-WebSocket-Extensions");
-          let protocol = response.headers.get_header("Sec-WebSocket-Protocol");
-
-          if !upgrade
-            .is_none_or(|upgrade| upgrade.eq_ignore_ascii_case("websocket"))
-            || !connection.is_none_or(|connection| {
-              connection.eq_ignore_ascii_case("upgrade")
+          if Self::validate_response(&response, &extensions, &protocols, &key) {
+            Ok(Client {
+              stream: self.stream,
+              state: PhantomData::<Open>,
             })
-            || accept.is_none_or(|accept| accept.trim() != get_accept_key(&key))
-            || accepted_extensions.iter().any(|accepted_extension| {
-              extensions.iter().all(|available_extension| {
-                accepted_extension != available_extension
-              }) || protocol.is_none_or(|accepted_protocol| {
-                protocols.iter().all(|available_protocol| {
-                  accepted_protocol != available_protocol
-                })
-              })
-            })
-          {
+          } else {
             eprintln!("Failed to establish connection");
             Err(Client {
               stream: self.stream,
               state: PhantomData::<Closed>,
-            })
-          } else {
-            Ok(Client {
-              stream: self.stream,
-              state: PhantomData::<Open>,
             })
           }
         }
@@ -116,5 +95,48 @@ impl Client<Connecting> {
         })
       }
     }
+  }
+
+  // TODO: return Result
+  fn validate_response(
+    response: &Response,
+    available_extensions: &[String],
+    available_protocols: &[String],
+    key: &str,
+  ) -> bool {
+    let upgrade = response.headers.get_header("Upgrade");
+    if !upgrade.is_none_or(|upgrade| upgrade.eq_ignore_ascii_case("websocket"))
+    {
+      return false;
+    }
+
+    let connection = response.headers.get_header("Connection");
+    if !connection
+      .is_none_or(|connection| connection.eq_ignore_ascii_case("upgrade"))
+    {
+      return false;
+    }
+
+    let accept = response.headers.get_header("Sec-WebSocket-Accept");
+    if accept.is_none_or(|accept| accept.trim() != get_accept_key(key)) {
+      return false;
+    }
+
+    let accepted_extensions =
+      header_to_vec(&response.headers, "Sec-WebSocket-Extensions");
+    if accepted_extensions.iter().any(|accepted_extension| {
+      available_extensions
+        .iter()
+        .all(|available_extension| accepted_extension != available_extension)
+    }) {
+      return false;
+    }
+
+    let protocol = response.headers.get_header("Sec-WebSocket-Protocol");
+    protocol.is_none_or(|accepted_protocol| {
+      available_protocols
+        .iter()
+        .all(|available_protocol| accepted_protocol != available_protocol)
+    })
   }
 }
