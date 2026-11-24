@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crypto::{base_64, hash::sha1};
+use crypto::hash::Sha1;
 use http::{
   header::Headers, http_connection::HttpConnection,
   http_status_codes::HttpStatusCode, request::Request, response::Response,
@@ -81,39 +81,7 @@ impl Server {
     concatenation.push_str(key);
     concatenation.push_str(WEBSOCKET_GUID);
 
-    let hashed = sha1(concatenation.as_bytes());
-
-    let bytes = [
-      hashed[0].to_be_bytes(),
-      hashed[1].to_be_bytes(),
-      hashed[2].to_be_bytes(),
-      hashed[3].to_be_bytes(),
-      hashed[4].to_be_bytes(),
-    ];
-
-    // TODO: move into sha1 file
-    base_64::encode(&[
-      bytes[0][0],
-      bytes[0][1],
-      bytes[0][2],
-      bytes[0][3],
-      bytes[1][0],
-      bytes[1][1],
-      bytes[1][2],
-      bytes[1][3],
-      bytes[2][0],
-      bytes[2][1],
-      bytes[2][2],
-      bytes[2][3],
-      bytes[3][0],
-      bytes[3][1],
-      bytes[3][2],
-      bytes[3][3],
-      bytes[4][0],
-      bytes[4][1],
-      bytes[4][2],
-      bytes[4][3],
-    ])
+    Sha1::new(concatenation.as_bytes()).get_base64_encoded()
   }
 }
 

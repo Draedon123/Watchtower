@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crypto::hash::sha1;
+use crypto::hash::Sha1;
 
 fn main() {
   let num_trials = 16;
@@ -12,7 +12,7 @@ fn main() {
         .repeat(2usize.pow(21));
 
     let start = Instant::now();
-    let _ = sha1(&test_128_mib);
+    let _ = Sha1::new(&test_128_mib);
     let elapsed = Instant::elapsed(&start).as_secs_f64();
     let throughput_mib_s = 128.0 / elapsed;
 
