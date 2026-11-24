@@ -1,3 +1,4 @@
+use crypto::base_64;
 use http::{header::Headers, http_method::HttpMethod, request::Request};
 use misc::uri::Uri;
 
@@ -56,7 +57,9 @@ impl Handshake {
       .cloned()
       .ok_or(String::from("Websocket key not provided"))?;
 
-    // TODO: check that the base64 decoded key is  16 bytes
+    if base_64::decode(&key).len() != 16 {
+      return Err(String::from("Decoded key is not 16 bytes"));
+    }
 
     let protocols: Vec<_> =
       Self::header_to_vec(&request.headers, "Sec-Websocket-Protocol");
