@@ -119,45 +119,22 @@ impl Sha1 {
     Self { words: h }
   }
 
-  pub fn get_words(&self) -> &[u32] {
+  pub fn words(&self) -> &[u32] {
     &self.words
   }
 
-  pub fn get_bytes(&self) -> [u8; 20] {
-    let bytes = [
-      self.words[0].to_be_bytes(),
-      self.words[1].to_be_bytes(),
-      self.words[2].to_be_bytes(),
-      self.words[3].to_be_bytes(),
-      self.words[4].to_be_bytes(),
-    ];
+  pub fn to_bytes(&self) -> [u8; 20] {
+    let mut bytes = [0u8; 20];
 
-    [
-      bytes[0][0],
-      bytes[0][1],
-      bytes[0][2],
-      bytes[0][3],
-      bytes[1][0],
-      bytes[1][1],
-      bytes[1][2],
-      bytes[1][3],
-      bytes[2][0],
-      bytes[2][1],
-      bytes[2][2],
-      bytes[2][3],
-      bytes[3][0],
-      bytes[3][1],
-      bytes[3][2],
-      bytes[3][3],
-      bytes[4][0],
-      bytes[4][1],
-      bytes[4][2],
-      bytes[4][3],
-    ]
+    for (i, word) in self.words.iter().enumerate() {
+      bytes[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
+    }
+
+    bytes
   }
 
-  pub fn get_base64_encoded(&self) -> String {
-    base_64::encode(&self.get_bytes())
+  pub fn to_base64(&self) -> String {
+    base_64::encode(&self.to_bytes())
   }
 }
 
@@ -194,7 +171,7 @@ mod tests {
   #[test]
   fn basic() {
     assert_eq!(
-      Sha1::new(b"abc").get_words(),
+      Sha1::new(b"abc").words(),
       [0xa9993e36, 0x4706816a, 0xba3e2571, 0x7850c26c, 0x9cd0d89d]
     );
   }
@@ -202,7 +179,7 @@ mod tests {
   #[test]
   fn empty() {
     assert_eq!(
-      Sha1::new(b"").get_words(),
+      Sha1::new(b"").words(),
       [0xda39a3ee, 0x5e6b4b0d, 0x3255bfef, 0x95601890, 0xafd80709]
     );
   }
@@ -211,7 +188,7 @@ mod tests {
   fn boundary() {
     assert_eq!(
       Sha1::new(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")
-        .get_words(),
+        .words(),
       [0x84983e44, 0x1c3bd26e, 0xbaae4aa1, 0xf95129e5, 0xe54670f1]
     );
 
@@ -220,7 +197,7 @@ mod tests {
         b"abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn\
       hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
       )
-      .get_words(),
+      .words(),
       [0xa49b2446, 0xa02c645b, 0xf419f995, 0xb6709125, 0x3a04a259]
     );
   }
@@ -231,7 +208,7 @@ mod tests {
     one_million_a.resize(1000000, b'a');
 
     assert_eq!(
-      Sha1::new(&one_million_a).get_words(),
+      Sha1::new(&one_million_a).words(),
       [0x34aa973c, 0xd4c4daa4, 0xf61eeb2b, 0xdbad2731, 0x6534016f]
     );
   }
@@ -244,7 +221,7 @@ mod tests {
         .repeat(16777216);
 
     assert_eq!(
-      Sha1::new(&one_gb).get_words(),
+      Sha1::new(&one_gb).words(),
       [0x7789f0c9, 0xef7bfc40, 0xd9331114, 0x3dfbe69e, 0x2017f592]
     );
   }

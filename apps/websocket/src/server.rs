@@ -81,7 +81,7 @@ impl Server {
     concatenation.push_str(key);
     concatenation.push_str(WEBSOCKET_GUID);
 
-    Sha1::new(concatenation.as_bytes()).get_base64_encoded()
+    Sha1::new(concatenation.as_bytes()).to_base64()
   }
 }
 
