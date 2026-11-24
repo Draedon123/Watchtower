@@ -86,4 +86,14 @@ impl<'a> SplitSlice<'a> {
   pub fn is_empty(&self) -> bool {
     self.immutable.is_empty() && self.mutable.is_empty()
   }
+
+  pub fn into_vec(self) -> Vec<u8> {
+    let mut output =
+      Vec::with_capacity(self.immutable.len() + self.mutable.len());
+
+    output.extend_from_slice(self.immutable);
+    output.extend_from_slice(&self.mutable);
+
+    output
+  }
 }

@@ -8,6 +8,16 @@ const ENCODING_ALPHABET: [char; 64] = [
   '8', '9', '+', '/',
 ];
 
+// First 123 values in th UTF8 table and their corresponding base64 decoded sextet
+const DECODING_TABLE: [u8; 123] = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 62, 0, 0, 0, 63, 52, 53,
+  54, 55, 56, 57, 58, 59, 60, 61, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7,
+  8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 0, 0,
+  0, 0, 0, 0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+  42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+];
+
 const PADDING: char = '=';
 
 pub fn encode(raw: &[u8]) -> String {
@@ -20,8 +30,8 @@ pub fn encode(raw: &[u8]) -> String {
 
   for i in 0..output_len_no_padding {
     // right-shift by 2 to only read the first 6 bits of the byte
-    let byte = bits.get_byte_unaligned(i * 6) >> 2;
-    let encoded_character = ENCODING_ALPHABET[byte as usize];
+    let sextet = bits.get_byte_unaligned(i * 6) >> 2;
+    let encoded_character = ENCODING_ALPHABET[sextet as usize];
 
     encoded.push(encoded_character);
   }
@@ -34,6 +44,47 @@ pub fn encode(raw: &[u8]) -> String {
   };
 
   encoded
+}
+
+pub fn decode(encoded: &str) -> Vec<u8> {
+  if encoded.is_empty() {
+    return Vec::new();
+  };
+
+  let input = BitVec::from_bytes(encoded.as_bytes());
+  let mut output_length = encoded.len() / 4 * 3;
+  let mut input_length_unpadded = encoded.len();
+
+  if input.get_byte_aligned(encoded.len() - 1) == b'=' {
+    output_length -= 1;
+    input_length_unpadded -= 1;
+  }
+
+  if input.get_byte_aligned(encoded.len() - 2) == b'=' {
+    output_length -= 1;
+    input_length_unpadded -= 1;
+  }
+
+  let mut output =
+    BitVec::from_split_slice(SplitSlice::with_length(&[], output_length));
+
+  for i in 0..input_length_unpadded {
+    let byte = input.get_byte_aligned(i);
+    let sextet = DECODING_TABLE[byte as usize];
+
+    println!(
+      "{byte} ({}) -> {sextet}",
+      std::str::from_utf8(&[byte]).unwrap()
+    );
+
+    output.set_bits(i * 6, sextet << 2, 6);
+  }
+
+  let mut output = output.into_vec();
+
+  output.truncate(output_length);
+
+  output
 }
 
 #[cfg(test)]
@@ -63,5 +114,28 @@ mod tests {
   fn encode_no_padding() {
     assert_eq!(encode(b"foo"), "Zm9v");
     assert_eq!(encode(b"foobar"), "Zm9vYmFy");
+  }
+
+  #[test]
+  fn decode_empty() {
+    assert_eq!(String::from_utf8(decode("")).unwrap(), "");
+  }
+
+  #[test]
+  fn decode_2_padding() {
+    assert_eq!(String::from_utf8(decode("Zg==")).unwrap(), "f");
+    assert_eq!(String::from_utf8(decode("Zm9vYg==")).unwrap(), "foob");
+  }
+
+  #[test]
+  fn decode_1_padding() {
+    assert_eq!(String::from_utf8(decode("Zm8=")).unwrap(), "fo");
+    assert_eq!(String::from_utf8(decode("Zm9vYmE=")).unwrap(), "fooba");
+  }
+
+  #[test]
+  fn decode_no_padding() {
+    assert_eq!(String::from_utf8(decode("Zm9v")).unwrap(), "foo");
+    assert_eq!(String::from_utf8(decode("Zm9vYmFy")).unwrap(), "foobar");
   }
 }

@@ -162,13 +162,18 @@ impl<'a> BitVec<'a> {
   }
 
   pub fn set_byte_unaligned(&mut self, bit_offset: usize, value: u8) {
-    let end = bit_offset + U8_BITS;
+    self.set_bits(bit_offset, value, U8_BITS);
+  }
+
+  /// The first `num_bits` of `value` are written
+  pub fn set_bits(&mut self, bit_offset: usize, value: u8, num_bits: usize) {
+    let end = bit_offset + num_bits;
 
     if end >= self.len() {
       self.resize(end);
     }
 
-    for i in 0..U8_BITS {
+    for i in 0..num_bits {
       self.set(bit_offset + i, value & (1 << Self::get_bit_index(i)) != 0);
     }
   }
@@ -197,6 +202,10 @@ impl<'a> BitVec<'a> {
 
   fn bytes_required(bits: usize) -> usize {
     bits.div_ceil(U8_BITS)
+  }
+
+  pub fn into_vec(self) -> Vec<u8> {
+    self.bits.into_vec()
   }
 }
 
