@@ -38,12 +38,12 @@ impl Client {
 
     let port = uri.get_port().unwrap_or(80);
 
-    if self.host != uri.authority || self.port != port {
+    if self.host != uri.get_host() || self.port != port {
       let stream = TcpStream::connect((uri.get_host(), port))
         .await
         .map_err(|error| format!("TcpStream::connect failed: {error}"))?;
 
-      self.host = uri.authority.clone();
+      self.host = uri.get_host().to_owned();
       self.port = port;
       self.connection = Some(HttpConnection::new(stream));
     };
