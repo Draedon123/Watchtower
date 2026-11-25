@@ -1,7 +1,5 @@
 use crypto::{bit_vec::BitVec, split_slice::SplitSlice};
 
-use crate::frame;
-
 pub struct Frame {
   finished: bool,
   rsv1: bool,
@@ -27,11 +25,14 @@ impl Frame {
 
   pub fn into_buffer(mut self) -> Vec<u8> {
     let payload_length = PayloadLength::from_payload(&self.payload);
-    let frame_size_bytes: usize =
-      2 + payload_length.serialised_length_bits() + self.payload.len();
+    let frame_size_bytes_no_payload: usize = 2
+      + if self.mask.is_some() { 4 } else { 0 }
+      + payload_length.serialised_length_bits();
 
-    let mut buffer =
-      BitVec::from_split_slice(SplitSlice::with_length(&[], frame_size_bytes));
+    let mut buffer = BitVec::from_split_slice(SplitSlice::with_length(
+      &[],
+      frame_size_bytes_no_payload,
+    ));
 
     buffer.set(0, self.finished);
     buffer.set(1, self.rsv1);
@@ -41,23 +42,23 @@ impl Frame {
     buffer.set(8, self.mask.is_some());
     buffer.set_bits(9, payload_length.get_first_serialised_byte() << 1, 7);
 
-    let mut byte_offset: usize = 2;
+    let mut bit_offset: usize = 16;
 
     match payload_length {
       PayloadLength::Small(_) => {}
       PayloadLength::Medium(length) => {
-        buffer.set_u16_be_aligned(byte_offset, length);
-        byte_offset += u16::BITS as usize / 8;
+        buffer.set_u16_be_aligned(bit_offset, length);
+        bit_offset += u16::BITS as usize;
       }
       PayloadLength::Large(length) => {
-        buffer.set_u64_be_aligned(byte_offset, length);
-        byte_offset += u64::BITS as usize / 8;
+        buffer.set_u64_be_aligned(bit_offset, length);
+        bit_offset += u64::BITS as usize;
       }
     }
 
     match self.mask {
       Some(mask) => {
-        buffer.set_u32_be_aligned(byte_offset, mask);
+        buffer.set_u32_be_unaligned(bit_offset, mask);
 
         Self::mask_payload(&mut self.payload, mask);
 
@@ -79,6 +80,20 @@ impl Frame {
       let mask_octet = mask >> (8 * mask_octet);
 
       *byte ^= mask_octet as u8;
+    }
+  }
+}
+
+impl From<String> for Frame {
+  fn from(value: String) -> Self {
+    Frame {
+      finished: true,
+      rsv1: false,
+      rsv2: false,
+      rsv3: false,
+      op_code: OpCode::Text,
+      mask: None,
+      payload: value.into_bytes(),
     }
   }
 }
@@ -146,5 +161,39 @@ impl PayloadLength {
       Self::Medium(_) => 126,
       Self::Large(_) => 127,
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // https://datatracker.ietf.org/doc/html/rfc6455#section-5.7
+
+  #[test]
+  fn single_frame_unmasked_text() {
+    let message = String::from("Hello");
+    let frame = Frame::from(message);
+
+    assert_eq!(
+      frame.into_buffer(),
+      vec![0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f]
+    );
+  }
+
+  #[test]
+  fn single_frame_masked_text() {
+    let message = String::from("Hello");
+    let mask = 0x37fa213du32;
+
+    let mut frame = Frame::from(message);
+    frame.mask = Some(mask);
+
+    assert_eq!(
+      frame.into_buffer(),
+      vec![
+        0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58
+      ]
+    );
   }
 }
