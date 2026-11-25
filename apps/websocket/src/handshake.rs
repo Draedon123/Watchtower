@@ -2,8 +2,6 @@ use crypto::base_64;
 use http::{http_method::HttpMethod, request::Request};
 use misc::uri::Uri;
 
-use crate::utils::header_to_vec;
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct Handshake {
   pub resource_name: String,
@@ -63,11 +61,15 @@ impl Handshake {
       return Err(String::from("Decoded key is not 16 bytes"));
     }
 
-    let protocols: Vec<_> =
-      header_to_vec(&request.headers, "Sec-Websocket-Protocol");
+    let protocols: Vec<_> = request
+      .headers
+      .get_headers("Sec-Websocket-Protocol")
+      .unwrap_or_default();
     // TODO: extract into struct and handle parameters properly
-    let extensions: Vec<_> =
-      header_to_vec(&request.headers, "Sec-Websocket-Extensions");
+    let extensions: Vec<_> = request
+      .headers
+      .get_headers("Sec-Websocket-Extensions")
+      .unwrap_or_default();
 
     let version = request
       .headers

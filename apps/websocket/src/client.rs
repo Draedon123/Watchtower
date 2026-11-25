@@ -8,7 +8,7 @@ use http::{
 use misc::uri::Uri;
 use tokio::net::TcpStream;
 
-use crate::utils::{get_accept_key, header_to_vec};
+use crate::utils::get_accept_key;
 
 pub struct Connecting;
 pub struct Open;
@@ -111,8 +111,10 @@ impl Client<Connecting> {
       return false;
     }
 
-    let accepted_extensions =
-      header_to_vec(&response.headers, "Sec-WebSocket-Extensions");
+    let accepted_extensions = &response
+      .headers
+      .get_headers("Sec-WebSocket-Extensions")
+      .unwrap_or_default();
     if accepted_extensions.iter().any(|accepted_extension| {
       available_extensions
         .iter()

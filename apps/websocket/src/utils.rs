@@ -1,5 +1,5 @@
 use crypto::hash::Sha1;
-use http::header::Headers;
+
 const WEBSOCKET_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 pub fn get_accept_key(key: &str) -> String {
@@ -12,14 +12,16 @@ pub fn get_accept_key(key: &str) -> String {
   Sha1::new(concatenation.as_bytes()).to_base64()
 }
 
-pub fn header_to_vec(headers: &Headers, header: &str) -> Vec<String> {
-  headers
-    .get_header(header)
-    .map(|headers| {
-      headers
-        .split(',')
-        .map(|value| value.trim().to_owned())
-        .collect()
-    })
-    .unwrap_or_default()
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn handshake_key() {
+    // https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.2
+
+    let key = "dGhlIHNhbXBsZSBub25jZQ==";
+
+    assert_eq!(get_accept_key(key), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+  }
 }
