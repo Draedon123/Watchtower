@@ -7,14 +7,30 @@ macro_rules! impl_for_utype {
   ($type: ident, $bytes: literal, $gbeu: ident, $gbea: ident, $sbeu: ident, $sbea: ident) => {
     impl<'a> BitVec<'a> {
       pub fn $gbeu(&self, bit_offset: usize) -> Option<$type> {
+        if bit_offset + $bytes * U8_BITS >= self.len() {
+          return None;
+        };
+
         Some($type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(
-          |i| self.get_byte_unaligned(bit_offset + i * U8_BITS).unwrap(),
+          |i| {
+            self
+              .get_byte_unaligned(bit_offset + i * U8_BITS)
+              .expect("BitVec is long enough")
+          },
         )))
       }
 
       pub fn $gbea(&self, byte_offset: usize) -> Option<$type> {
+        if (byte_offset + $bytes) * U8_BITS >= self.len() {
+          return None;
+        };
+
         Some($type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(
-          |i| self.get_byte_aligned(byte_offset + i).unwrap(),
+          |i| {
+            self
+              .get_byte_aligned(byte_offset + i)
+              .expect("BitVec is long enough")
+          },
         )))
       }
 
