@@ -338,16 +338,23 @@ fn get_routes(
           .add_client(&request.http_request, connection)
           .await;
 
-        if let Err((error, mut connection)) = result {
-          response.status_code = HttpStatusCode::Status400;
-          response.headers.set_header("Connection", "close");
-          response.body = Body::Text(error);
-          if let Err(error) = connection.send_response(response).await {
-            eprintln!(
-              "Failed to send response for failed WebSocket connection: {error}"
-            );
-          };
-        };
+        match result {
+          Ok(handshake) => {
+            websocket_server.write().await.send_to_client(&handshake.key, String::from("test")).await;
+          }
+          Err((error, mut connection)) => {
+            {
+              response.status_code = HttpStatusCode::Status400;
+              response.headers.set_header("Connection", "close");
+              response.body = Body::Text(error);
+              if let Err(error) = connection.send_response(response).await {
+                eprintln!(
+                  "Failed to send response for failed WebSocket connection: {error}"
+                );
+              };
+            }
+          }
+        }
 
         RouteResult::TakeOver
       })

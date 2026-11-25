@@ -5,10 +5,15 @@ use http::{
   http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
 
-use crate::{client::Client, handshake::Handshake, utils::get_accept_key};
+use crate::{
+  client::{Client, Open},
+  frame::Frame,
+  handshake::Handshake,
+  utils::get_accept_key,
+};
 
 pub struct Server {
-  pub clients: HashMap<String, Client>,
+  pub clients: HashMap<String, Client<Open>>,
 }
 
 impl Server {
@@ -23,7 +28,7 @@ impl Server {
     &mut self,
     request: &Request,
     mut connection: HttpConnection,
-  ) -> Result<(), (String, HttpConnection)> {
+  ) -> Result<Handshake, (String, HttpConnection)> {
     let handshake = Handshake::from_request(request);
 
     match handshake {
@@ -37,17 +42,19 @@ impl Server {
         };
 
         let stream = connection.into_stream();
-        self.clients.insert(handshake.key, Client::new(stream));
+        self
+          .clients
+          .insert(handshake.key.clone(), Client::new_open(stream));
+
+        Ok(handshake)
       }
       Err(error) => {
         let error = format!("Rejected handshake: {error}");
 
         println!("{}", error);
-        return Err((error, connection));
+        Err((error, connection))
       }
-    };
-
-    Ok(())
+    }
   }
 
   async fn accept_handshake(
@@ -66,6 +73,15 @@ impl Server {
     ]);
 
     connection.send_response(&mut response).await
+  }
+
+  pub async fn send_to_client(&mut self, client_key: &str, message: String) {
+    if let Some(client) = self.clients.get_mut(client_key) {
+      let frame = Frame::from_string(message, None);
+      if let Err(error) = client.send(frame).await {
+        eprintln!("Failed to send frame to client: {error}");
+      }
+    }
   }
 }
 

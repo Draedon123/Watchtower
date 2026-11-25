@@ -6,9 +6,9 @@ use http::{
   http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
 use misc::uri::Uri;
-use tokio::net::TcpStream;
+use tokio::{io::AsyncWriteExt, net::TcpStream};
 
-use crate::utils::get_accept_key;
+use crate::{frame::Frame, utils::get_accept_key};
 
 pub struct Connecting;
 pub struct Open;
@@ -25,6 +25,13 @@ impl Client {
     Self {
       stream,
       state: PhantomData::<Connecting>,
+    }
+  }
+
+  pub fn new_open(stream: TcpStream) -> Client<Open> {
+    Client {
+      stream,
+      state: PhantomData::<Open>,
     }
   }
 }
@@ -129,5 +136,15 @@ impl Client<Connecting> {
         .iter()
         .all(|available_protocol| accepted_protocol != available_protocol)
     })
+  }
+}
+
+impl Client<Open> {
+  pub async fn send(&mut self, frame: Frame) -> Result<(), String> {
+    self
+      .stream
+      .write_all(&frame.into_buffer())
+      .await
+      .map_err(|error| format!("Failed to write frame to TcpStream: {error}"))
   }
 }
