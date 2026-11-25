@@ -8,7 +8,7 @@ use tokio_stream::{Stream, StreamExt};
 
 use crate::header::Headers;
 pub enum Body {
-  Fixed(String),
+  Text(String),
   Binary(Vec<u8>),
   Chunked(Pin<Box<dyn Stream<Item = Vec<u8>> + Send + Sync>>),
   None,
@@ -21,7 +21,7 @@ impl Body {
     W: AsyncWrite + Unpin,
   {
     match self {
-      Self::Fixed(content) => stream
+      Self::Text(content) => stream
         .write_all(content.as_bytes())
         .await
         .map_err(|error| error.to_string()),
@@ -59,7 +59,7 @@ impl Body {
 
   pub fn set_headers(&self, headers: &mut Headers) {
     match self {
-      Self::Fixed(content) => {
+      Self::Text(content) => {
         headers
           .set_header("Content-Length", &content.len().to_string())
           .set_header("Content-Type", "text/plain; charset=utf-8");
@@ -80,7 +80,7 @@ impl Body {
 
   pub fn utf8(&self) -> Result<&str, String> {
     match self {
-      Self::Fixed(content) => Ok(&content[..]),
+      Self::Text(content) => Ok(&content[..]),
       Self::Binary(content) => std::str::from_utf8(content).map_err(|error| {
         format!("Failed to convert binary data to utf8: {error}")
       }),
@@ -93,7 +93,7 @@ impl Body {
 impl Debug for Body {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Fixed(data) => data.fmt(f),
+      Self::Text(data) => data.fmt(f),
       Self::Binary(data) => data.fmt(f),
       Self::Chunked(data) => data.fmt(f),
       Self::None => write!(f, "None"),
@@ -103,13 +103,13 @@ impl Debug for Body {
 
 impl From<String> for Body {
   fn from(value: String) -> Self {
-    Self::Fixed(value)
+    Self::Text(value)
   }
 }
 
 impl From<&str> for Body {
   fn from(value: &str) -> Self {
-    Self::Fixed(value.to_owned())
+    Self::Text(value.to_owned())
   }
 }
 

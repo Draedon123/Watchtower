@@ -94,7 +94,7 @@ fn get_routes(
   routes.route("/", HttpMethod::Get, |_, response, connection| {
     Box::pin(async move {
       response.status_code = HttpStatusCode::Status200;
-      response.body = Body::Fixed(String::from("ok"));
+      response.body = Body::Text(String::from("ok"));
 
       RouteResult::Respond(connection)
     })
@@ -341,7 +341,7 @@ fn get_routes(
         if let Err((error, mut connection)) = result {
           response.status_code = HttpStatusCode::Status400;
           response.headers.set_header("Connection", "close");
-          response.body = Body::Fixed(error);
+          response.body = Body::Text(error);
           if let Err(error) = connection.send_response(response).await {
             eprintln!(
               "Failed to send response for failed WebSocket connection: {error}"
