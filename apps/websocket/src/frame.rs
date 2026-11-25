@@ -170,6 +170,32 @@ impl Frame {
       payload: payload.unwrap_or_default(),
     })
   }
+
+  pub fn declare_fragment_start(&mut self) {
+    if self.op_code.is_control() {
+      panic!("Cannot have fragmented control frame");
+    };
+
+    self.finished = false;
+  }
+
+  pub fn declare_fragment_middle(&mut self) {
+    if self.op_code.is_control() {
+      panic!("Cannot have fragmented control frame");
+    };
+
+    self.finished = false;
+    self.op_code = OpCode::Continuation;
+  }
+
+  pub fn declare_fragment_end(&mut self) {
+    if self.op_code.is_control() {
+      panic!("Cannot have fragmented control frame");
+    };
+
+    self.finished = true;
+    self.op_code = OpCode::Continuation;
+  }
 }
 
 pub enum OpCode {
@@ -196,6 +222,13 @@ impl OpCode {
       Self::NonControl(code) => *code,
       Self::Control(code) => *code,
     }
+  }
+
+  pub fn is_control(&self) -> bool {
+    matches!(
+      self,
+      Self::Close | Self::Ping | Self::Pong | Self::Control(_)
+    )
   }
 }
 
@@ -263,6 +296,18 @@ mod tests {
         0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58
       ]
     );
+  }
+
+  #[test]
+  fn fragmented_unmasked_text() {
+    let mut fragment_1 = Frame::from_string(String::from("Hel"), None);
+    let mut fragment_2 = Frame::from_string(String::from("lo"), None);
+
+    fragment_1.declare_fragment_start();
+    fragment_2.declare_fragment_end();
+
+    assert_eq!(fragment_1.into_buffer(), vec![0x01, 0x03, 0x48, 0x65, 0x6c]);
+    assert_eq!(fragment_2.into_buffer(), vec![0x80, 0x02, 0x6c, 0x6f]);
   }
 
   #[test]
