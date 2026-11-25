@@ -319,7 +319,7 @@ fn get_routes(
   routes.route(
     "/machine/[machine]/websocket",
     HttpMethod::Get,
-    move |request, _, connection| {
+    move |request, response, connection| {
       let websocket_server = websocket_server.clone();
 
       Box::pin(async move {
@@ -330,15 +330,10 @@ fn get_routes(
           .await;
 
         if let Err((error, mut connection)) = result {
-          let mut response = Response::new();
-
           response.status_code = HttpStatusCode::Status400;
-          response
-            .headers
-            .set_header("Connection", "close")
-            .set_header("Access-Control-Allow-Origin", "*");
+          response.headers.set_header("Connection", "close");
           response.body = Body::Fixed(error);
-          if let Err(error) = connection.send_response(&mut response).await {
+          if let Err(error) = connection.send_response(response).await {
             eprintln!(
               "Failed to send response for failed WebSocket connection: {error}"
             );

@@ -13,12 +13,11 @@ impl Headers {
   }
 
   pub fn add_header_line(&mut self, line: &str) -> Result<(), String> {
-    let (key, value) = match line.split_once(":") {
-      Some((key, value)) => (key.trim().to_lowercase(), value.trim()),
-      None => return Err(format!("Received malformed header line: {line}")),
-    };
+    let (key, value) = line
+      .split_once(":")
+      .ok_or(format!("Received malformed header line: {line}"))?;
 
-    self.set_header(&key, value);
+    self.add_header(&key.trim().to_lowercase(), value.trim());
     Ok(())
   }
 
@@ -32,6 +31,26 @@ impl Headers {
       .insert(key.to_owned().to_lowercase(), value.to_owned());
 
     self
+  }
+
+  pub fn add_header(&mut self, key: &str, value: &str) -> &mut Self {
+    self
+      .headers
+      .entry(key.to_owned())
+      .and_modify(|old| *old = format!("{old}, {value}"))
+      .or_insert(value.to_owned());
+
+    self
+  }
+
+  pub fn get_headers(&self, key: &str) -> Option<Vec<String>> {
+    Some(
+      self
+        .get_header(key)?
+        .split(',')
+        .map(|value| value.trim().to_owned())
+        .collect(),
+    )
   }
 
   pub fn combine(source: &Self, overwrites: &Self) -> Self {
@@ -65,7 +84,7 @@ impl From<Vec<(&str, &str)>> for Headers {
     let mut headers = Self::new();
 
     for (key, value) in value {
-      headers.set_header(key, value);
+      headers.add_header(key, value);
     }
 
     headers
@@ -92,5 +111,18 @@ mod tests {
     );
 
     assert_eq!(defaults_applied.get_header("a"), Some(&String::from("b")));
+  }
+
+  #[test]
+  fn add_header() {
+    let mut headers = Headers::new();
+
+    headers.add_header("foo", "bar").add_header("foo", "baz");
+
+    assert_eq!(headers.get_header("foo"), Some(&String::from("bar, baz")));
+    assert_eq!(
+      headers.get_headers("foo"),
+      Some(vec![String::from("bar"), String::from("baz")])
+    );
   }
 }

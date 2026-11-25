@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1.54.1", features = ["net", "io-util"] }
+tokio = { version = "1.54.1", features = [
+  "net",
+  "io-util",
+  "test-util",
+  "macros",
+] }
 tokio-stream = "0.1.19"
 misc = { path = "../misc" }
