@@ -4,16 +4,16 @@ const INITIAL_HASH: [u32; 5] =
   [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
 
 struct Message<'a> {
-  pub length: usize,
+  pub len: usize,
   pub bits: BitVec<'a>,
 }
 
 impl<'a> Message<'a> {
   pub fn from_bytes(bytes: &'a [u8]) -> Self {
-    let length = bytes.len() * 8;
+    let len = bytes.len() * 8;
     let bits = BitVec::from_bytes(bytes);
 
-    Self { length, bits }
+    Self { len, bits }
   }
 }
 
@@ -54,15 +54,15 @@ fn k(t: usize) -> u32 {
 }
 
 fn pad(message: &mut Message) {
-  let padding = (447 + 512 - (message.length % 512)) % 512;
+  let padding = (447 + 512 - (message.len % 512)) % 512;
 
   message
     .bits
-    .resize(message.length + padding + 1 + u64::BITS as usize);
-  message.bits.set(message.length, true);
+    .resize(message.len + padding + 1 + u64::BITS as usize);
+  message.bits.set(message.len, true);
   message.bits.set_u64_be_aligned(
-    (message.bits.len() / u8::BITS as usize) - (u64::BITS / u8::BITS) as usize,
-    message.length as u64,
+    (message.bits.len() - u64::BITS as usize) / u8::BITS as usize,
+    message.len as u64,
   );
 }
 
@@ -82,7 +82,10 @@ impl Sha1 {
 
       (0..80).for_each(|t| {
         w[t] = if t <= 15 {
-          message.bits.get_u32_be_aligned(i * 16 + t)
+          message
+            .bits
+            .get_u32_be_aligned((u32::BITS / u8::BITS) as usize * (i * 16 + t))
+            .unwrap()
         } else {
           (w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]).rotate_left(1)
         }
@@ -157,14 +160,14 @@ mod tests {
 
     assert_eq!(message.bits.len(), 512);
 
-    assert_eq!(message.bits.get_u64_be_aligned(0), 0x6162638000000000);
-    assert_eq!(message.bits.get_u64_be_aligned(1), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(2), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(3), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(4), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(5), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(6), 0);
-    assert_eq!(message.bits.get_u64_be_aligned(7), bit_length);
+    assert_eq!(message.bits.get_u64_be_aligned(0), Some(0x6162638000000000));
+    assert_eq!(message.bits.get_u64_be_aligned(8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(2 * 8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(3 * 8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(4 * 8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(5 * 8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(6 * 8), Some(0));
+    assert_eq!(message.bits.get_u64_be_aligned(7 * 8), Some(bit_length));
   }
 
   // https://di-mgt.com.au/sha_testvectors.html

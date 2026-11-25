@@ -6,18 +6,16 @@ macro_rules! impl_for_utype {
   // gbeu/gbea/sbeu/sbea = get/set big endian unaligned/aligned
   ($type: ident, $bytes: literal, $gbeu: ident, $gbea: ident, $sbeu: ident, $sbea: ident) => {
     impl<'a> BitVec<'a> {
-      pub fn $gbeu(&self, bit_offset: usize) -> $type {
-        $type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(|i| {
-          self.get_byte_unaligned(bit_offset + i * U8_BITS)
-        }))
+      pub fn $gbeu(&self, bit_offset: usize) -> Option<$type> {
+        Some($type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(
+          |i| self.get_byte_unaligned(bit_offset + i * U8_BITS).unwrap(),
+        )))
       }
 
-      pub fn $gbea(&self, index: usize) -> $type {
-        let byte_index = index * ($type::BITS as usize / 8);
-
-        $type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(|i| {
-          self.get_byte_aligned(byte_index + i)
-        }))
+      pub fn $gbea(&self, byte_offset: usize) -> Option<$type> {
+        Some($type::from_be_bytes(std::array::from_fn::<_, $bytes, _>(
+          |i| self.get_byte_aligned(byte_offset + i).unwrap(),
+        )))
       }
 
       pub fn $sbeu(&mut self, bit_offset: usize, value: $type) {
@@ -73,6 +71,7 @@ impl_for_utype!(
   set_u64_be_aligned
 );
 
+#[derive(Debug)]
 pub struct BitVec<'a> {
   bits: SplitSlice<'a>,
   length: usize,
@@ -92,7 +91,7 @@ impl<'a> BitVec<'a> {
     let bit_length = bits.len() * U8_BITS;
 
     Self {
-      bits: SplitSlice::with_padding(&[], bits),
+      bits: SplitSlice::new(&[], Vec::from(bits)),
       length: bit_length,
     }
   }
@@ -106,21 +105,42 @@ impl<'a> BitVec<'a> {
     }
   }
 
-  pub fn get(&self, bit: usize) -> bool {
-    let byte = Self::get_containing_byte_index(bit);
-    let bit_index = Self::get_bit_index(bit);
-
-    self.bits.get(byte) & (1 << bit_index) != 0
+  pub fn with_length(bit_length: usize) -> Self {
+    Self {
+      bits: SplitSlice::with_length(
+        &[],
+        bit_length.div_ceil(u8::BITS as usize),
+      ),
+      length: bit_length,
+    }
   }
 
-  pub fn set(&mut self, bit: usize, value: bool) {
-    let byte = self.get_containing_byte_mut(bit);
+  pub fn get(&self, bit: usize) -> Option<bool> {
+    let byte_index = Self::get_containing_byte_index(bit);
     let bit_index = Self::get_bit_index(bit);
 
-    if value {
-      *byte |= 1 << bit_index
-    } else {
-      *byte &= !(1 << bit_index);
+    self
+      .bits
+      .get(byte_index)
+      .map(|byte| byte & (1 << bit_index) != 0)
+  }
+
+  pub fn set(&mut self, bit: usize, value: bool) -> bool {
+    let byte = self.get_containing_byte_mut(bit);
+
+    match byte {
+      Some(byte) => {
+        let bit_index = Self::get_bit_index(bit);
+
+        if value {
+          *byte |= 1 << bit_index;
+        } else {
+          *byte &= !(1 << bit_index);
+        }
+
+        true
+      }
+      None => false,
     }
   }
 
@@ -147,17 +167,19 @@ impl<'a> BitVec<'a> {
     self.bits.resize(Self::bytes_required(length), 0);
   }
 
-  pub fn get_byte_unaligned(&self, bit_offset: usize) -> u8 {
+  pub fn get_byte_unaligned(&self, bit_offset: usize) -> Option<u8> {
     let mut byte: u8 = 0;
 
     for i in 0..U8_BITS {
-      byte |= (self.get(bit_offset + i) as u8) << Self::get_bit_index(i);
+      let bit = self.get(bit_offset + i)?;
+
+      byte |= (bit as u8) << Self::get_bit_index(i)
     }
 
-    byte
+    Some(byte)
   }
 
-  pub fn get_byte_aligned(&self, index: usize) -> u8 {
+  pub fn get_byte_aligned(&self, index: usize) -> Option<u8> {
     self.bits.get(index)
   }
 
@@ -182,14 +204,19 @@ impl<'a> BitVec<'a> {
     self.bits.set(index, value);
   }
 
-  pub fn get_containing_byte(&self, bit: usize) -> &u8 {
+  pub fn get_containing_byte(&self, bit: usize) -> Option<u8> {
+    let byte_index = Self::get_containing_byte_index(bit);
+    self.bits.get(byte_index)
+  }
+
+  pub fn get_containing_byte_ref(&self, bit: usize) -> Option<&u8> {
     let byte_index = Self::get_containing_byte_index(bit);
     self.bits.get_ref(byte_index)
   }
 
-  fn get_containing_byte_mut(&mut self, bit: usize) -> &mut u8 {
+  fn get_containing_byte_mut(&mut self, bit: usize) -> Option<&mut u8> {
     let byte_index = Self::get_containing_byte_index(bit);
-    self.bits.get_mut_ref(byte_index)
+    self.bits.get_mut(byte_index)
   }
 
   pub fn get_containing_byte_index(bit: usize) -> usize {
@@ -218,16 +245,16 @@ mod tests {
     let mut data: Vec<u8> = vec![0; 16];
     let mut bit_vec = BitVec::from_bytes_mut(&mut data);
 
-    assert!(!bit_vec.get(14));
-    assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
+    assert_eq!(bit_vec.get(14), Some(false));
+    assert_eq!(bit_vec.get_containing_byte(14), Some(0u8));
 
     bit_vec.set(14, true);
-    assert!(bit_vec.get(14));
-    assert_eq!(*bit_vec.get_containing_byte(14), 2u8);
+    assert_eq!(bit_vec.get(14), Some(true));
+    assert_eq!(bit_vec.get_containing_byte(14), Some(2u8));
 
     bit_vec.set(14, false);
-    assert!(!bit_vec.get(14));
-    assert_eq!(*bit_vec.get_containing_byte(14), 0u8);
+    assert_eq!(bit_vec.get(14), Some(false));
+    assert_eq!(bit_vec.get_containing_byte(14), Some(0u8));
   }
 
   #[test]
@@ -238,7 +265,9 @@ mod tests {
     let value: u8 = 0x4a;
 
     bit_vec.set_byte_unaligned(4, value);
-    let read_value = bit_vec.get_byte_unaligned(4);
+    let read_value = bit_vec
+      .get_byte_unaligned(4)
+      .expect("BitVec should be long enough");
 
     assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
   }
@@ -251,7 +280,9 @@ mod tests {
     let value: u16 = 0x0123;
 
     bit_vec.set_u16_be_unaligned(4, value);
-    let read_value = bit_vec.get_u16_be_unaligned(4);
+    let read_value = bit_vec
+      .get_u16_be_unaligned(4)
+      .expect("BitVec should be long enough");
 
     assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
   }
@@ -264,7 +295,9 @@ mod tests {
     let value: u32 = 0x01234567;
 
     bit_vec.set_u32_be_unaligned(4, value);
-    let read_value = bit_vec.get_u32_be_unaligned(4);
+    let read_value = bit_vec
+      .get_u32_be_unaligned(4)
+      .expect("BitVec should be long enough");
 
     assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
   }
@@ -277,7 +310,9 @@ mod tests {
     let value: u64 = 0x0123456789abcdef;
 
     bit_vec.set_u64_be_unaligned(4, value);
-    let read_value = bit_vec.get_u64_be_unaligned(4);
+    let read_value = bit_vec
+      .get_u64_be_unaligned(4)
+      .expect("BitVec should be long enough");
 
     assert_eq!(read_value, value, "got 0x{:x} == 0x{:x}", read_value, value);
   }

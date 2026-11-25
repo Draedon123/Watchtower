@@ -30,7 +30,7 @@ pub fn encode(raw: &[u8]) -> String {
 
   for i in 0..output_len_no_padding {
     // right-shift by 2 to only read the first 6 bits of the byte
-    let sextet = bits.get_byte_unaligned(i * 6) >> 2;
+    let sextet = bits.get_byte_unaligned(i * 6).unwrap() >> 2;
     let encoded_character = ENCODING_ALPHABET[sextet as usize];
 
     encoded.push(encoded_character);
@@ -55,21 +55,20 @@ pub fn decode(encoded: &str) -> Vec<u8> {
   let mut output_length = encoded.len() / 4 * 3;
   let mut input_length_unpadded = encoded.len();
 
-  if input.get_byte_aligned(encoded.len() - 1) == b'=' {
+  if input.get_byte_aligned(encoded.len() - 1).unwrap() == b'=' {
     output_length -= 1;
     input_length_unpadded -= 1;
   }
 
-  if input.get_byte_aligned(encoded.len() - 2) == b'=' {
+  if input.get_byte_aligned(encoded.len() - 2).unwrap() == b'=' {
     output_length -= 1;
     input_length_unpadded -= 1;
   }
 
-  let mut output =
-    BitVec::from_split_slice(SplitSlice::with_length(&[], output_length));
+  let mut output = BitVec::with_length(output_length * u8::BITS as usize);
 
   for i in 0..input_length_unpadded {
-    let byte = input.get_byte_aligned(i);
+    let byte = input.get_byte_aligned(i).unwrap();
     let sextet = DECODING_TABLE[byte as usize];
 
     output.set_bits(i * 6, sextet << 2, 6);

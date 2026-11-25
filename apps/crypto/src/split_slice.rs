@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct SplitSlice<'a> {
   immutable: &'a [u8],
   mutable: Vec<u8>,
@@ -22,50 +23,44 @@ impl<'a> SplitSlice<'a> {
     }
   }
 
-  pub fn with_padding(immutable: &'a [u8], padding: &'a mut [u8]) -> Self {
-    Self {
-      immutable,
-      mutable: Vec::from(padding),
+  pub fn get(&self, index: usize) -> Option<u8> {
+    if index < self.immutable.len() {
+      self.immutable.get(index).cloned()
+    } else {
+      self.mutable.get(index - self.immutable.len()).cloned()
     }
   }
 
-  pub fn get(&self, index: usize) -> u8 {
+  pub fn get_ref(&self, index: usize) -> Option<&u8> {
     if index < self.immutable.len() {
-      self.immutable[index]
+      self.immutable.get(index)
     } else {
-      self.mutable[index - self.immutable.len()]
+      self.mutable.get(index - self.immutable.len())
     }
   }
 
-  pub fn get_ref(&self, index: usize) -> &u8 {
+  pub fn get_mut(&mut self, index: usize) -> Option<&mut u8> {
     if index < self.immutable.len() {
-      &self.immutable[index]
+      None
     } else {
-      &self.mutable[index - self.immutable.len()]
+      self.mutable.get_mut(index - self.immutable.len())
     }
   }
 
-  /// Panics if trying to obtain mutable reference of immutable data
-  pub fn get_mut_ref(&mut self, index: usize) -> &mut u8 {
+  // TODO: differentiate between fail reasons
+  pub fn set(&mut self, index: usize, value: u8) -> bool {
     if index < self.immutable.len() {
-      panic!(
-        "Tried to get mutable reference to immutable data (index {index} < self.immutable.len() {})",
-        self.immutable.len()
-      );
+      false
     } else {
-      &mut self.mutable[index - self.immutable.len()]
-    }
-  }
+      let mutable_index = index - self.immutable.len();
 
-  /// Panics if trying to modify immutable data
-  pub fn set(&mut self, index: usize, value: u8) {
-    if index < self.immutable.len() {
-      panic!(
-        "Tried to get mutate immutable data (index {index} < self.immutable.len() {})",
-        self.immutable.len()
-      );
-    } else {
-      self.mutable[index - self.immutable.len()] = value;
+      match self.mutable.get_mut(mutable_index) {
+        Some(element) => {
+          *element = value;
+          true
+        }
+        None => false,
+      }
     }
   }
 
@@ -74,6 +69,10 @@ impl<'a> SplitSlice<'a> {
   }
 
   pub fn resize(&mut self, length: usize, value: u8) {
+    if length < self.mutable.len() {
+      panic!("Cannot shrink immutable data");
+    };
+
     let padding_length = length - self.immutable.len();
 
     self.mutable.resize(padding_length, value);

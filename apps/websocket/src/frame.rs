@@ -1,4 +1,4 @@
-use crypto::{bit_vec::BitVec, split_slice::SplitSlice};
+use crypto::bit_vec::BitVec;
 
 pub struct Frame {
   finished: bool,
@@ -18,10 +18,8 @@ impl Frame {
       + if self.mask.is_some() { 4 } else { 0 }
       + payload_length.serialised_length_bytes();
 
-    let mut buffer = BitVec::from_split_slice(SplitSlice::with_length(
-      &[],
-      frame_size_bytes_no_payload,
-    ));
+    let mut buffer =
+      BitVec::with_length(frame_size_bytes_no_payload * u8::BITS as usize);
 
     buffer.set(0, self.finished);
     buffer.set(1, self.rsv1);
