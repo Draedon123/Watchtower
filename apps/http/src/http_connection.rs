@@ -2,18 +2,18 @@ use tokio::{
   io::{AsyncBufRead, AsyncWrite, AsyncWriteExt, BufReader, BufWriter},
   net::{
     TcpStream,
-    tcp::{OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
+    tcp::{OwnedReadHalf, OwnedWriteHalf},
   },
 };
 
 use crate::{request::Request, response::Response};
 
-pub struct HttpConnectionOwned {
+pub struct HttpConnection {
   reader: BufReader<OwnedReadHalf>,
   writer: BufWriter<OwnedWriteHalf>,
 }
 
-impl HttpConnectionOwned {
+impl HttpConnection {
   pub fn new(stream: TcpStream) -> Self {
     let (read, write) = stream.into_split();
     let reader = BufReader::new(read);
@@ -59,51 +59,6 @@ impl HttpConnectionOwned {
   }
 
   pub fn get_writer(&mut self) -> &mut BufWriter<OwnedWriteHalf> {
-    &mut self.writer
-  }
-}
-
-pub struct HttpConnectionBorrowed<'a> {
-  reader: BufReader<ReadHalf<'a>>,
-  writer: BufWriter<WriteHalf<'a>>,
-}
-
-impl<'a> HttpConnectionBorrowed<'a> {
-  pub fn new(stream: &'a mut TcpStream) -> Self {
-    let (read, write) = stream.split();
-    let reader = BufReader::new(read);
-    let writer = BufWriter::new(write);
-
-    Self { reader, writer }
-  }
-
-  pub async fn send_request(
-    &mut self,
-    request: &mut Request,
-  ) -> Result<Response, String> {
-    send_request(&mut self.reader, &mut self.writer, request).await
-  }
-
-  /// Does not wait for or read response
-  pub async fn send_request_rude(
-    &mut self,
-    request: &mut Request,
-  ) -> Result<(), String> {
-    send_request_rude(&mut self.writer, request).await
-  }
-
-  pub async fn send_response(
-    &mut self,
-    response: &mut Response,
-  ) -> Result<(), String> {
-    send_response(&mut self.writer, response).await
-  }
-
-  pub fn get_reader(&mut self) -> &mut BufReader<ReadHalf<'a>> {
-    &mut self.reader
-  }
-
-  pub fn get_writer(&mut self) -> &mut BufWriter<WriteHalf<'a>> {
     &mut self.writer
   }
 }

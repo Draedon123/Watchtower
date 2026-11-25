@@ -4,14 +4,14 @@ use misc::uri::Uri;
 use tokio::{net::TcpStream, time::sleep};
 
 use crate::{
-  header::Headers, http_connection::HttpConnectionOwned,
-  http_method::HttpMethod, request::Request, response::Response,
+  header::Headers, http_connection::HttpConnection, http_method::HttpMethod,
+  request::Request, response::Response,
 };
 
 pub struct Client {
   pub default_headers: Headers,
 
-  pub connection: Option<HttpConnectionOwned>,
+  pub connection: Option<HttpConnection>,
   host: String,
   port: u16,
 }
@@ -45,7 +45,7 @@ impl Client {
 
       self.host = uri.get_host().to_owned();
       self.port = port;
-      self.connection = Some(HttpConnectionOwned::new(stream));
+      self.connection = Some(HttpConnection::new(stream));
     };
 
     match self.connection {
@@ -112,7 +112,7 @@ impl Client {
 
   pub async fn try_reconnect_once(&mut self) -> Result<(), std::io::Error> {
     let stream = TcpStream::connect((&self.host[..], self.port)).await?;
-    self.connection = Some(HttpConnectionOwned::new(stream));
+    self.connection = Some(HttpConnection::new(stream));
 
     Ok(())
   }

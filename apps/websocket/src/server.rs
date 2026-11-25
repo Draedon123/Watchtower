@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use http::{
-  header::Headers, http_connection::HttpConnectionOwned,
+  header::Headers, http_connection::HttpConnection,
   http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
 
@@ -22,8 +22,8 @@ impl Server {
   pub async fn add_client(
     &mut self,
     request: &Request,
-    mut connection: HttpConnectionOwned,
-  ) -> Result<(), (String, HttpConnectionOwned)> {
+    mut connection: HttpConnection,
+  ) -> Result<(), (String, HttpConnection)> {
     let handshake = Handshake::from_request(request);
 
     match handshake {
@@ -52,7 +52,7 @@ impl Server {
 
   async fn accept_handshake(
     &self,
-    connection: &mut HttpConnectionOwned,
+    connection: &mut HttpConnection,
     handshake: &Handshake,
   ) -> Result<(), String> {
     let mut response = Response::new();

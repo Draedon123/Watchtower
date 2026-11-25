@@ -1,7 +1,7 @@
 use std::{collections::HashMap, pin::Pin, sync::Arc};
 
 use http::{
-  http_connection::HttpConnectionOwned, http_method::HttpMethod, response::Response,
+  http_connection::HttpConnection, http_method::HttpMethod, response::Response,
 };
 
 use crate::server::ServerRequest;
@@ -18,14 +18,14 @@ pub type RouteCallback = Arc<
   dyn for<'a> Fn(
       &'a ServerRequest,
       &'a mut Response,
-      HttpConnectionOwned,
+      HttpConnection,
     ) -> RouteCallbackFuture<'a>
     + Send
     + Sync,
 >;
 
 pub enum RouteResult {
-  Respond(HttpConnectionOwned),
+  Respond(HttpConnection),
   TakeOver,
 }
 
@@ -43,7 +43,7 @@ impl Routes {
     F: for<'a> Fn(
         &'a ServerRequest,
         &'a mut Response,
-        HttpConnectionOwned,
+        HttpConnection,
       ) -> RouteCallbackFuture<'a>
       + Send
       + Sync

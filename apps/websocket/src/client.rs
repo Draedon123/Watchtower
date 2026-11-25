@@ -2,9 +2,8 @@ use std::marker::PhantomData;
 
 use crypto::base_64;
 use http::{
-  header::Headers, http_connection::HttpConnectionBorrowed,
-  http_method::HttpMethod, http_status_codes::HttpStatusCode, request::Request,
-  response::Response,
+  header::Headers, http_connection::HttpConnection, http_method::HttpMethod,
+  http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
 use misc::uri::Uri;
 use tokio::net::TcpStream;
@@ -31,11 +30,8 @@ impl Client {
 }
 
 impl Client<Connecting> {
-  pub async fn connect(
-    mut self,
-    uri: Uri,
-  ) -> Result<Client<Open>, Client<Closed>> {
-    let mut connection = HttpConnectionBorrowed::new(&mut self.stream);
+  pub async fn connect(self, uri: Uri) -> Result<Client<Open>, Client<Closed>> {
+    let mut connection = HttpConnection::new(self.stream);
     let mut request = Request::new();
     let mut key = [0u8; 16];
 
@@ -65,13 +61,13 @@ impl Client<Connecting> {
         HttpStatusCode::Status101 => {
           if Self::validate_response(&response, &extensions, &protocols, &key) {
             Ok(Client {
-              stream: self.stream,
+              stream: connection.into_stream(),
               state: PhantomData::<Open>,
             })
           } else {
             eprintln!("Failed to establish connection");
             Err(Client {
-              stream: self.stream,
+              stream: connection.into_stream(),
               state: PhantomData::<Closed>,
             })
           }
@@ -82,7 +78,7 @@ impl Client<Connecting> {
           );
 
           Err(Client {
-            stream: self.stream,
+            stream: connection.into_stream(),
             state: PhantomData::<Closed>,
           })
         }
@@ -90,7 +86,7 @@ impl Client<Connecting> {
       Err(error) => {
         eprintln!("Failed to send handshake: {error}");
         Err(Client {
-          stream: self.stream,
+          stream: connection.into_stream(),
           state: PhantomData::<Closed>,
         })
       }
