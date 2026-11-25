@@ -57,32 +57,20 @@ impl Client<Connecting> {
     let response = connection.send_request(&mut request).await;
 
     match response {
-      Ok(response) => match response.status_code {
-        HttpStatusCode::Status101 => {
-          if Self::validate_response(&response, &extensions, &protocols, &key) {
-            Ok(Client {
-              stream: connection.into_stream(),
-              state: PhantomData::<Open>,
-            })
-          } else {
-            eprintln!("Failed to establish connection");
-            Err(Client {
-              stream: connection.into_stream(),
-              state: PhantomData::<Closed>,
-            })
-          }
-        }
-        status => {
-          eprintln!(
-            "Failed to establish connection. Received status code: {status}"
-          );
-
+      Ok(response) => {
+        if Self::validate_response(&response, &extensions, &protocols, &key) {
+          Ok(Client {
+            stream: connection.into_stream(),
+            state: PhantomData::<Open>,
+          })
+        } else {
+          eprintln!("Failed to establish connection");
           Err(Client {
             stream: connection.into_stream(),
             state: PhantomData::<Closed>,
           })
         }
-      },
+      }
       Err(error) => {
         eprintln!("Failed to send handshake: {error}");
         Err(Client {
@@ -100,6 +88,11 @@ impl Client<Connecting> {
     available_protocols: &[String],
     key: &str,
   ) -> bool {
+    if let HttpStatusCode::Status101 = response.status_code {
+    } else {
+      return false;
+    }
+
     let upgrade = response.headers.get_header("Upgrade");
     if !upgrade.is_none_or(|upgrade| upgrade.eq_ignore_ascii_case("websocket"))
     {
