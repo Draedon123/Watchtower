@@ -61,7 +61,7 @@ fn pad(message: &mut Message) {
     .resize(message.length + padding + 1 + u64::BITS as usize);
   message.bits.set(message.length, true);
   message.bits.set_u64_be_aligned(
-    (message.bits.len() / u64::BITS as usize) - 1,
+    (message.bits.len() / u8::BITS as usize) - (u64::BITS / u8::BITS) as usize,
     message.length as u64,
   );
 }

@@ -35,11 +35,11 @@ macro_rules! impl_for_utype {
         }
       }
 
-      pub fn $sbea(&mut self, index: usize, value: $type) {
+      pub fn $sbea(&mut self, byte_offset: usize, value: $type) {
         let bytes = value.to_be_bytes();
 
         for i in 0..$bytes {
-          self.bits.set(index * $bytes + i, bytes[i]);
+          self.bits.set(byte_offset + i, bytes[i]);
         }
       }
     }
