@@ -7,7 +7,7 @@ macro_rules! impl_for_utype {
   ($type: ident, $bytes: literal, $gbeu: ident, $gbea: ident, $sbeu: ident, $sbea: ident) => {
     impl<'a> BitVec<'a> {
       pub fn $gbeu(&self, bit_offset: usize) -> Option<$type> {
-        if bit_offset + $bytes * U8_BITS >= self.len() {
+        if bit_offset + $bytes * U8_BITS > self.len() {
           return None;
         };
 
@@ -21,7 +21,7 @@ macro_rules! impl_for_utype {
       }
 
       pub fn $gbea(&self, byte_offset: usize) -> Option<$type> {
-        if (byte_offset + $bytes) * U8_BITS >= self.len() {
+        if (byte_offset + $bytes) * U8_BITS > self.len() {
           return None;
         };
 
