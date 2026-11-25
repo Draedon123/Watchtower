@@ -36,7 +36,7 @@ impl Headers {
   pub fn add_header(&mut self, key: &str, value: &str) -> &mut Self {
     self
       .headers
-      .entry(key.to_owned())
+      .entry(key.to_lowercase())
       .and_modify(|old| *old = format!("{old}, {value}"))
       .or_insert(value.to_owned());
 
@@ -101,27 +101,27 @@ mod tests {
     default.set_header("Foo", "Bar").set_header("a", "b");
 
     let mut overwrites = Headers::new();
-    overwrites.set_header("Foo", "Baz");
+    overwrites.set_header("foo", "Baz");
 
     let defaults_applied = Headers::combine(&default, &overwrites);
 
     assert_eq!(
-      defaults_applied.get_header("Foo"),
+      defaults_applied.get_header("FOO"),
       Some(&String::from("Baz"))
     );
 
-    assert_eq!(defaults_applied.get_header("a"), Some(&String::from("b")));
+    assert_eq!(defaults_applied.get_header("A"), Some(&String::from("b")));
   }
 
   #[test]
   fn add_header() {
     let mut headers = Headers::new();
 
-    headers.add_header("foo", "bar").add_header("foo", "baz");
+    headers.add_header("FOO", "bar").add_header("foo", "baz");
 
     assert_eq!(headers.get_header("foo"), Some(&String::from("bar, baz")));
     assert_eq!(
-      headers.get_headers("foo"),
+      headers.get_headers("Foo"),
       Some(vec![String::from("bar"), String::from("baz")])
     );
   }
