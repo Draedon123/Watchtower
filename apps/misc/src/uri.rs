@@ -195,7 +195,7 @@ mod tests {
   #[test]
   fn full_uri() {
     let raw = "http://www.ics.uci.edu:80/pub/ietf/uri/?foo=bar&baz#Related";
-    let uri = Uri::new(raw).unwrap();
+    let uri = Uri::new(raw).expect("Provided URI is valid");
 
     assert_eq!(uri.scheme, "http");
     assert_eq!(uri.authority, "www.ics.uci.edu:80");
@@ -210,7 +210,7 @@ mod tests {
   #[test]
   fn minimal_uri() {
     let raw = "http://foo";
-    let uri = Uri::new(raw).unwrap();
+    let uri = Uri::new(raw).expect("Provided URI is valid");
 
     assert_eq!(uri.scheme, "http");
     assert_eq!(uri.authority, "foo");
@@ -225,7 +225,7 @@ mod tests {
   #[test]
   fn minimal_relative_uri() {
     let path = "/foo";
-    let uri = Uri::new(path).unwrap();
+    let uri = Uri::new(path).expect("Provided URI is valid");
 
     assert_eq!(uri.scheme, "");
     assert_eq!(uri.authority, "");
@@ -241,7 +241,8 @@ mod tests {
   fn percent_encode_decode() {
     let string = "foo.com/$bar🥀";
     let encoded = Uri::percent_encode(string);
-    let decoded = Uri::percent_decode(&encoded).unwrap();
+    let decoded = Uri::percent_decode(&encoded)
+      .expect("Decoding correctly encoded values should not fail");
 
     assert_eq!(encoded, "foo.com%2F%24bar%F0%9F%A5%80");
     assert_eq!(decoded, string);

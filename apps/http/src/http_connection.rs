@@ -51,7 +51,7 @@ impl HttpConnectionOwned {
       .reunite(self.writer.into_inner())
       // .reunite should only fail if the two halves were from different sockets, which should be
       // impossible, given the private .reader and .writer fields
-      .unwrap()
+      .expect("Read and write halves should be from same TcpStream")
   }
 
   pub fn get_reader(&mut self) -> &mut BufReader<OwnedReadHalf> {

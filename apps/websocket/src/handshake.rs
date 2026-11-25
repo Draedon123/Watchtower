@@ -115,7 +115,7 @@ mod tests {
 
   #[test]
   fn resource_name_empty() {
-    let uri = Uri::new("").unwrap();
+    let uri = Uri::new("").expect("Empty URI should be valid");
     let resource_name = Handshake::get_resource_name(&uri);
 
     assert_eq!(resource_name, "/");
@@ -123,7 +123,7 @@ mod tests {
 
   #[test]
   fn resource_name_no_fragment() {
-    let uri = Uri::new("/foo").unwrap();
+    let uri = Uri::new("/foo").expect("URI should be valid");
     let resource_name = Handshake::get_resource_name(&uri);
 
     assert_eq!(resource_name, "/foo");
@@ -131,7 +131,7 @@ mod tests {
 
   #[test]
   fn resource_name_empty_with_fragment() {
-    let uri = Uri::new("/?bar").unwrap();
+    let uri = Uri::new("/?bar").expect("URI should be valid");
     let resource_name = Handshake::get_resource_name(&uri);
 
     assert_eq!(resource_name, "/?bar");
@@ -139,7 +139,7 @@ mod tests {
 
   #[test]
   fn resource_name_full() {
-    let uri = Uri::new("/foo?bar").unwrap();
+    let uri = Uri::new("/foo?bar").expect("URI should be valid");
     println!("{}", uri.fragment);
     let resource_name = Handshake::get_resource_name(&uri);
 
@@ -163,12 +163,13 @@ mod tests {
 
     let request = Request {
       method: HttpMethod::Get,
-      uri: Uri::new("/foo?bar").unwrap(),
+      uri: Uri::new("/foo?bar").expect("URI should be valid"),
       headers,
       body: Body::None,
     };
 
-    let handshake = Handshake::from_request(&request).unwrap();
+    let handshake = Handshake::from_request(&request)
+      .expect("Provided request should be valid");
 
     assert_eq!(
       handshake,

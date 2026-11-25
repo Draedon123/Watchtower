@@ -108,7 +108,10 @@ fn get_routes(
       let data = data_reader.clone();
 
       Box::pin(async move {
-        let machine = request.slugs.get("machine").unwrap();
+        let machine = request
+          .slugs
+          .get("machine")
+          .expect("[machine] slug is present in route path");
         // TODO: optimise
         let body = match request.http_request.body.utf8() {
           Ok(body) => body,
@@ -199,7 +202,10 @@ fn get_routes(
             return RouteResult::Respond(connection);
           };
 
-          let machine = request.slugs.get("machine").unwrap();
+          let machine = request
+            .slugs
+            .get("machine")
+            .expect("[machine] slug is present in route path");
 
           response.status_code = if data
             .write()
@@ -237,7 +243,7 @@ fn get_routes(
         }
       };
       let content: Vec<_> = body.lines().collect();
-      let machine = request.slugs.get("machine").unwrap();
+      let machine = request.slugs.get("machine").expect("[machine] slug is present in route path");
 
       response.status_code = HttpStatusCode::Status200;
 
@@ -272,7 +278,10 @@ fn get_routes(
       Box::pin(async move {
         let data = data.read().await;
 
-        let key = request.slugs.get("key").unwrap();
+        let key = request
+          .slugs
+          .get("key")
+          .expect("[key] slug is present in route path");
         let body = match request.http_request.body.utf8() {
           Ok(body) => body,
           Err(_) => {

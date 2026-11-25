@@ -86,7 +86,10 @@ mod tests {
   fn start_lines() {
     assert_eq!(
       Request::parse_start_line("POST /users HTTP/1.1"),
-      Ok((HttpMethod::Post, Uri::new("/users").unwrap()))
+      Ok((
+        HttpMethod::Post,
+        Uri::new("/users").expect("/users is a valid, relative URI")
+      ))
     );
   }
 }

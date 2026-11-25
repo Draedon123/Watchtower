@@ -72,11 +72,6 @@ pub fn decode(encoded: &str) -> Vec<u8> {
     let byte = input.get_byte_aligned(i);
     let sextet = DECODING_TABLE[byte as usize];
 
-    println!(
-      "{byte} ({}) -> {sextet}",
-      std::str::from_utf8(&[byte]).unwrap()
-    );
-
     output.set_bits(i * 6, sextet << 2, 6);
   }
 
@@ -116,26 +111,45 @@ mod tests {
     assert_eq!(encode(b"foobar"), "Zm9vYmFy");
   }
 
+  const EXPECT_VALID_UTF8: &str = "Decoding encoded utf8 should yield utf8";
   #[test]
   fn decode_empty() {
-    assert_eq!(String::from_utf8(decode("")).unwrap(), "");
+    assert_eq!(String::from_utf8(decode("")).expect(EXPECT_VALID_UTF8), "");
   }
 
   #[test]
   fn decode_2_padding() {
-    assert_eq!(String::from_utf8(decode("Zg==")).unwrap(), "f");
-    assert_eq!(String::from_utf8(decode("Zm9vYg==")).unwrap(), "foob");
+    assert_eq!(
+      String::from_utf8(decode("Zg==")).expect(EXPECT_VALID_UTF8),
+      "f"
+    );
+    assert_eq!(
+      String::from_utf8(decode("Zm9vYg==")).expect(EXPECT_VALID_UTF8),
+      "foob"
+    );
   }
 
   #[test]
   fn decode_1_padding() {
-    assert_eq!(String::from_utf8(decode("Zm8=")).unwrap(), "fo");
-    assert_eq!(String::from_utf8(decode("Zm9vYmE=")).unwrap(), "fooba");
+    assert_eq!(
+      String::from_utf8(decode("Zm8=")).expect(EXPECT_VALID_UTF8),
+      "fo"
+    );
+    assert_eq!(
+      String::from_utf8(decode("Zm9vYmE=")).expect(EXPECT_VALID_UTF8),
+      "fooba"
+    );
   }
 
   #[test]
   fn decode_no_padding() {
-    assert_eq!(String::from_utf8(decode("Zm9v")).unwrap(), "foo");
-    assert_eq!(String::from_utf8(decode("Zm9vYmFy")).unwrap(), "foobar");
+    assert_eq!(
+      String::from_utf8(decode("Zm9v")).expect(EXPECT_VALID_UTF8),
+      "foo"
+    );
+    assert_eq!(
+      String::from_utf8(decode("Zm9vYmFy")).expect(EXPECT_VALID_UTF8),
+      "foobar"
+    );
   }
 }

@@ -150,9 +150,9 @@ mod tests {
     assert_eq!(
       read_chunked_body(&mut buffer_reader)
         .await
-        .unwrap()
+        .expect("Body should be valid")
         .utf8()
-        .unwrap(),
+        .expect("Body should contain valid UTF8"),
       "Welcometo Mozilla Developer Network"
     );
   }
