@@ -8,7 +8,10 @@ use http::{
 use misc::uri::Uri;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
-use crate::{frame::Frame, utils::get_accept_key};
+use crate::{
+  frame::Frame, utils::get_accept_key,
+  websocket_status_code::WebSocketStatusCode,
+};
 
 pub struct Connecting;
 pub struct Open;
@@ -146,24 +149,26 @@ impl Client<Open> {
 
   pub async fn close(
     self,
+    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
+    mask: Option<u32>,
   ) -> Result<Client<Closing>, (String, Client<Closed>)> {
     let client = Client {
       stream: self.stream,
       state: PhantomData::<Closing>,
     };
 
-    client.close().await
+    client.close(status_code_and_reason, mask).await
   }
 }
 
 impl Client<Closing> {
-  async fn close(mut self) -> Result<Self, (String, Client<Closed>)> {
+  async fn close(
+    mut self,
+    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
+    mask: Option<u32>,
+  ) -> Result<Self, (String, Client<Closed>)> {
     // TODO: allow payloads and masks
-    let frame = Frame::close(
-      Some((1000, Some(String::from("Connection ended by server")))),
-      None,
-    )
-    .unwrap();
+    let frame = Frame::close(status_code_and_reason, mask).unwrap();
     match frame.write_to_buffer(&mut self.stream).await {
       Ok(_) => {
         if let Err(error) = self.stream.shutdown().await {

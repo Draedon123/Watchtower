@@ -1,6 +1,8 @@
 use crypto::bit_vec::BitVec;
 use tokio::io::AsyncWriteExt;
 
+use crate::websocket_status_code::WebSocketStatusCode;
+
 pub struct Frame {
   finished: bool,
   rsv1: bool,
@@ -11,7 +13,6 @@ pub struct Frame {
   payload: Vec<u8>,
 }
 
-// TODO: fragmented messages
 impl Frame {
   pub fn into_buffer(mut self) -> Vec<u8> {
     let payload_length = PayloadLength::from_payload(&self.payload);
@@ -97,27 +98,28 @@ impl Frame {
 
   // TODO: non-string errors
   pub fn close(
-    payload: Option<(u16, Option<String>)>,
+    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
     mask: Option<u32>,
   ) -> Result<Self, String> {
-    if let Some((_, Some(message))) = &payload
+    if let Some((_, Some(message))) = &status_code_and_reason
       && message.len() > 123
     {
       return Err(String::from("Message longer than 123 bytes"));
     };
 
-    let payload = payload.map_or_default(|(status_code, reason)| {
-      let reason = reason.unwrap_or_default();
-      let status_code_bytes = status_code.to_be_bytes();
+    let payload =
+      status_code_and_reason.map_or_default(|(status_code, reason)| {
+        let reason = reason.unwrap_or_default();
+        let status_code_bytes = status_code.to_u16().to_be_bytes();
 
-      let mut payload = Vec::<u8>::with_capacity(2 + reason.len());
+        let mut payload = Vec::<u8>::with_capacity(2 + reason.len());
 
-      payload.push(status_code_bytes[0]);
-      payload.push(status_code_bytes[1]);
-      payload.extend_from_slice(reason.as_bytes());
+        payload.push(status_code_bytes[0]);
+        payload.push(status_code_bytes[1]);
+        payload.extend_from_slice(reason.as_bytes());
 
-      payload
-    });
+        payload
+      });
 
     Ok(Frame {
       finished: true,
@@ -220,7 +222,6 @@ pub enum OpCode {
   Control(u8),
 }
 
-// TODO: combine with payload type
 impl OpCode {
   pub fn as_byte(&self) -> u8 {
     match self {
@@ -383,8 +384,11 @@ mod tests {
 
   #[test]
   fn unmasked_close() {
-    let frame = Frame::close(Some((1000, Some(String::from("Hello")))), None)
-      .expect("Message is less than 124 bytes");
+    let frame = Frame::close(
+      Some((WebSocketStatusCode::Normal, Some(String::from("Hello")))),
+      None,
+    )
+    .expect("Message is less than 124 bytes");
 
     let expected: Vec<u8> =
       vec![0x88, 0x07, 0x03, 0xe8, 0x48, 0x65, 0x6c, 0x6c, 0x6f];

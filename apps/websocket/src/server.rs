@@ -10,6 +10,7 @@ use crate::{
   frame::Frame,
   handshake::Handshake,
   utils::get_accept_key,
+  websocket_status_code::WebSocketStatusCode,
 };
 
 pub struct Server {
@@ -79,7 +80,9 @@ impl Server {
 
   pub async fn close_client(&mut self, client_key: &str) {
     if let Some(client) = self.clients.remove(client_key)
-      && let Err((error, _)) = client.close().await
+      && let Err((error, _)) = client
+        .close(Some((WebSocketStatusCode::Normal, None)), None)
+        .await
     {
       eprintln!("Failed to close client: {}", error);
     }
