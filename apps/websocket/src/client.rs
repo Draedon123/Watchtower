@@ -141,10 +141,44 @@ impl Client<Connecting> {
 
 impl Client<Open> {
   pub async fn send(&mut self, frame: Frame) -> Result<(), String> {
-    self
-      .stream
-      .write_all(&frame.into_buffer())
-      .await
-      .map_err(|error| format!("Failed to write frame to TcpStream: {error}"))
+    frame.write_to_buffer(&mut self.stream).await
+  }
+
+  pub async fn close(
+    self,
+  ) -> Result<Client<Closing>, (String, Client<Closed>)> {
+    let client = Client {
+      stream: self.stream,
+      state: PhantomData::<Closing>,
+    };
+
+    client.close().await
+  }
+}
+
+impl Client<Closing> {
+  async fn close(mut self) -> Result<Self, (String, Client<Closed>)> {
+    // TODO: allow payloads and masks
+    let frame = Frame::close(
+      Some((1000, Some(String::from("Connection ended by server")))),
+      None,
+    )
+    .unwrap();
+    match frame.write_to_buffer(&mut self.stream).await {
+      Ok(_) => {
+        if let Err(error) = self.stream.shutdown().await {
+          eprintln!("Could not shutdown stream: {error}");
+        };
+
+        Ok(self)
+      }
+      Err(error) => Err((
+        error,
+        Client {
+          stream: self.stream,
+          state: PhantomData::<Closed>,
+        },
+      )),
+    }
   }
 }

@@ -1,4 +1,5 @@
 use crypto::bit_vec::BitVec;
+use tokio::io::AsyncWriteExt;
 
 pub struct Frame {
   finished: bool,
@@ -123,7 +124,7 @@ impl Frame {
       rsv1: false,
       rsv2: false,
       rsv3: false,
-      op_code: OpCode::Ping,
+      op_code: OpCode::Close,
       mask,
       payload,
     })
@@ -195,6 +196,16 @@ impl Frame {
 
     self.finished = true;
     self.op_code = OpCode::Continuation;
+  }
+
+  pub async fn write_to_buffer<W>(self, buffer: &mut W) -> Result<(), String>
+  where
+    W: AsyncWriteExt + Unpin,
+  {
+    buffer
+      .write_all(&self.into_buffer())
+      .await
+      .map_err(|error| format!("Failed to write frame into buffer: {error}"))
   }
 }
 
@@ -368,5 +379,16 @@ mod tests {
       frame[frame.len() - 10..],
       expected_frame[expected_frame.len() - 10..]
     );
+  }
+
+  #[test]
+  fn unmasked_close() {
+    let frame = Frame::close(Some((1000, Some(String::from("Hello")))), None)
+      .expect("Message is less than 124 bytes");
+
+    let expected: Vec<u8> =
+      vec![0x88, 0x07, 0x03, 0xe8, 0x48, 0x65, 0x6c, 0x6c, 0x6f];
+
+    assert_eq!(frame.into_buffer(), expected);
   }
 }

@@ -33,8 +33,6 @@ impl Server {
 
     match handshake {
       Ok(handshake) => {
-        println!("Accepted handshake: {:#?}", handshake);
-
         let result = self.accept_handshake(&mut connection, &handshake).await;
 
         if let Err(error) = result {
@@ -48,12 +46,7 @@ impl Server {
 
         Ok(handshake)
       }
-      Err(error) => {
-        let error = format!("Rejected handshake: {error}");
-
-        println!("{}", error);
-        Err((error, connection))
-      }
+      Err(error) => Err((format!("Rejected handshake: {error}"), connection)),
     }
   }
 
@@ -81,6 +74,14 @@ impl Server {
       if let Err(error) = client.send(frame).await {
         eprintln!("Failed to send frame to client: {error}");
       }
+    }
+  }
+
+  pub async fn close_client(&mut self, client_key: &str) {
+    if let Some(client) = self.clients.remove(client_key)
+      && let Err((error, _)) = client.close().await
+    {
+      eprintln!("Failed to close client: {}", error);
     }
   }
 }

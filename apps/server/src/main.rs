@@ -341,6 +341,7 @@ fn get_routes(
         match result {
           Ok(handshake) => {
             websocket_server.write().await.send_to_client(&handshake.key, String::from("test")).await;
+            websocket_server.write().await.close_client(&handshake.key).await;
           }
           Err((error, mut connection)) => {
             {
