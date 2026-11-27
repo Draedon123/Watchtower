@@ -13,16 +13,16 @@ use crate::{
 #[derive(Clone)]
 pub struct WsServerHandle {
   server_tx: mpsc::Sender<WsMessage>,
-  id: String,
 }
 
 impl WsServerHandle {
-  pub fn new(server_tx: mpsc::Sender<WsMessage>, id: String) -> Self {
-    Self { server_tx, id }
+  pub fn new(server_tx: mpsc::Sender<WsMessage>) -> Self {
+    Self { server_tx }
   }
 
   pub async fn handle_http_request(
     &self,
+    id: String,
     request: &Request,
     mut connection: HttpConnection,
   ) -> Result<Option<WsReply>, (String, Box<HttpConnection>)> {
@@ -37,10 +37,7 @@ impl WsServerHandle {
             if let Err(error) = self
               .server_tx
               .send(WsMessage {
-                message: WsMessageType::NewClient(
-                  self.id.clone(),
-                  connection.into_stream(),
-                ),
+                message: WsMessageType::NewClient(id, connection.into_stream()),
                 reply_tx: tx,
               })
               .await
@@ -58,15 +55,16 @@ impl WsServerHandle {
     }
   }
 
-  pub async fn send_text(&self, text: String) -> Result<WsReply, String> {
+  pub async fn send_text(
+    &self,
+    client_id: String,
+    text: String,
+  ) -> Result<WsReply, String> {
     let (tx, rx) = WsReply::get_channel();
 
     self
       .server_tx
-      .send(WsMessage::new(
-        WsMessageType::SendText(self.id.clone(), text),
-        tx,
-      ))
+      .send(WsMessage::new(WsMessageType::SendText(client_id, text), tx))
       .await
       .map_err(|error| format!("Failed to send message: {error}"))?;
 

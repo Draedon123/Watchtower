@@ -3,55 +3,48 @@ use std::collections::HashMap;
 use tokio::{net::TcpStream, sync::mpsc};
 
 use crate::{
-  server_client::ServerClient,
-  ws_message::{WsMessage, WsReply},
+  client_handle::{ClientHandle, Command, CommandType},
+  server_client::{Event, ServerClient},
+  ws_message::{
+    WsMessage,
+    WsMessageType::{NewClient, SendText},
+    WsReply,
+  },
   ws_server_handle::WsServerHandle,
 };
 
 pub struct Server {
+  event_rx: mpsc::Receiver<Event>,
+  event_tx: mpsc::Sender<Event>,
+  handle_rx: mpsc::Receiver<WsMessage>,
   handle_tx: mpsc::Sender<WsMessage>,
-  clients: HashMap<String, ServerClient>,
+  client_handles: HashMap<String, ClientHandle>,
 }
 
 impl Server {
-  pub fn new() -> (Self, mpsc::Receiver<WsMessage>) {
+  pub fn new() -> Self {
     let (handle_tx, handle_rx) = mpsc::channel::<WsMessage>(128);
+    let (event_tx, event_rx) = mpsc::channel::<Event>(32);
 
-    (
-      Self {
-        handle_tx,
-        clients: HashMap::new(),
-      },
+    Self {
+      event_rx,
+      event_tx,
+      handle_tx,
       handle_rx,
-    )
+      client_handles: HashMap::new(),
+    }
   }
 
-  pub fn get_handle(&self, id: String) -> WsServerHandle {
-    WsServerHandle::new(self.handle_tx.clone(), id)
+  pub fn get_handle(&self) -> WsServerHandle {
+    WsServerHandle::new(self.handle_tx.clone())
   }
 
-  fn initialise_new_client(&self, socket: TcpStream) {
-    let client = ServerClient::new(socket);
-
-    tokio::spawn(async move { client.run().await });
-  }
-
-  /// Blocks thread. Must receive the `handle_rx` that was returned from `Server::new`.
-  pub async fn start(&self, mut handle_rx: mpsc::Receiver<WsMessage>) {
+  /// Blocks thread
+  pub async fn start(&mut self) {
     loop {
-      match handle_rx.recv().await {
+      match self.handle_rx.recv().await {
         Some(message) => {
-          println!(
-            "WebSocket Server received message from HTTP Server: {:#?}",
-            message.message
-          );
-
-          if let Err(error) = message
-            .reply_tx
-            .send(WsReply::new(String::from("Hello from WebSocket Server")))
-          {
-            eprintln!("WebSocket Server failed to send reply: {error}");
-          };
+          self.handle_message(message).await;
         }
         None => {
           println!("WebSocket Server stopped");
@@ -59,5 +52,54 @@ impl Server {
         }
       }
     }
+  }
+
+  async fn handle_message(&mut self, message: WsMessage) {
+    match message.message {
+      NewClient(client_id, socket) => {
+        self.add_client(client_id, socket);
+      }
+      SendText(client_id, payload) => {
+        let client_handle = self.client_handles.get(&client_id);
+
+        match client_handle {
+          Some(client_handle) => {
+            let command = Command::new(
+              CommandType::Send(payload.into_bytes()),
+              message.reply_tx,
+            );
+
+            client_handle.send_command(command).await;
+          }
+          None => {
+            let reply = WsReply::new(String::from("Client not found"));
+            let reply_result = message.reply_tx.send(reply);
+
+            if let Err(error) = reply_result {
+              eprintln!("WebSocket Server failed to send reply: {error}");
+            }
+          }
+        }
+      }
+    }
+  }
+
+  fn add_client(&mut self, client_id: String, socket: TcpStream) {
+    let (command_tx, command_rx) = mpsc::channel::<Command>(32);
+
+    let mut client =
+      ServerClient::new(socket, command_rx, self.event_tx.clone());
+
+    // TODO: handle dupliate client_id's
+    let client_handle = ClientHandle::new(command_tx);
+    self.client_handles.insert(client_id, client_handle);
+
+    tokio::spawn(async move { client.run().await });
+  }
+}
+
+impl Default for Server {
+  fn default() -> Self {
+    Self::new()
   }
 }

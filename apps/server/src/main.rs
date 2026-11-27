@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use watchtower_server::route::RouteResult;
 use websocket::server::Server as WsServer;
+use websocket::ws_server_handle::WsServerHandle;
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -32,11 +33,11 @@ async fn main() {
   let data = Arc::new(RwLock::new(Data::new()));
 
   let mut http_server = HttpServer::new(config.port).unwrap();
-  let (websocket_server, handle_rx) = WsServer::new();
-  let websocket_server = Arc::new(websocket_server);
+  let mut websocket_server = WsServer::new();
+  let ws_server_handle = Arc::new(websocket_server.get_handle());
 
   http_server.routes =
-    Arc::new(get_routes(&config, &data, websocket_server.clone()));
+    Arc::new(get_routes(&config, &data, ws_server_handle.clone()));
 
   let default_response_headers =
     Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
@@ -62,7 +63,7 @@ async fn main() {
   });
 
   joinset.spawn(async move {
-    websocket_server.start(handle_rx).await;
+    websocket_server.start().await;
   });
 
   joinset.join_all().await;
@@ -96,7 +97,7 @@ fn respond_if_unauthenticated(
 fn get_routes(
   config: &Config,
   data: &Arc<RwLock<Data>>,
-  websocket_server: Arc<WsServer>,
+  handle: Arc<WsServerHandle>,
 ) -> Routes {
   let mut routes = Routes::new();
 
@@ -335,19 +336,19 @@ fn get_routes(
     },
   );
 
-  let websocket_server = websocket_server.clone();
+  let handle = handle.clone();
   routes.route("/machine/[machine]/websocket", HttpMethod::Get, move |request, response, connection| {
-    let websocket_server = websocket_server.clone();
+    let handle = handle.clone();
 
     Box::pin(async move {
-      let handle = websocket_server.get_handle(request.slugs.get("machine").expect("[machine] slug is present in route path").clone());
-      let result = handle.handle_http_request(&request.http_request, connection).await;
+      let machine = request.slugs.get("machine").expect("[machine] slug is present in route path");
+      let result = handle.handle_http_request(machine.clone(), &request.http_request, connection).await;
 
       match result {
         Ok(_) => {
           println!("Accepted connection");
 
-          match handle.send_text(String::from("Test from http server")).await {
+          match handle.send_text(machine.clone(), String::from("Test from http server")).await {
             Ok(reply) => println!("HTTP Server received reply from WebSocket Server: {reply}"),
             Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
           };
