@@ -7,6 +7,7 @@ use tokio::task::JoinSet;
 use watchtower_server::route::RouteResult;
 use websocket::server::Server as WsServer;
 use websocket::ws_server_handle::WsServerHandle;
+use websocket::ws_status_code::WsStatusCode;
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -352,6 +353,12 @@ fn get_routes(
             Ok(reply) => println!("HTTP Server received reply from WebSocket Server: {reply}"),
             Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
           };
+
+          match handle.close(machine.clone(), Some((WsStatusCode::Normal, Some(String::from("Test finished"))))).await {
+            Ok(reply) => println!("HTTP Server received reply from WebSocket Server: {reply}"),
+            Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
+          };
+          println!("Close end");
         }
         Err((error, mut connection)) => {
           response.status_code = HttpStatusCode::Status400;

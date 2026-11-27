@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use tokio::{net::TcpStream, sync::oneshot};
 
+use crate::ws_status_code::WsStatusCode;
+
 #[derive(Debug)]
 pub struct WsMessage {
   pub message: WsMessageType,
@@ -23,6 +25,12 @@ pub enum WsMessageType {
   NewClient(String, TcpStream),
   /// (Client ID, Message)
   SendText(String, String),
+  /// (Client ID, Message)
+  SendBinary(String, Vec<u8>),
+  /// (Client ID, Payload)
+  Ping(String, Option<Vec<u8>>),
+  /// (Client ID, (Status Code, Reason))
+  Close(String, Option<(WsStatusCode, Option<String>)>),
 }
 
 #[derive(Debug)]

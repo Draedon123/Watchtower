@@ -8,6 +8,7 @@ use crate::{
   handshake::Handshake,
   utils::get_accept_key,
   ws_message::{WsMessage, WsMessageType, WsReply},
+  ws_status_code::WsStatusCode,
 };
 
 #[derive(Clone)]
@@ -60,11 +61,50 @@ impl WsServerHandle {
     client_id: String,
     text: String,
   ) -> Result<WsReply, String> {
+    self
+      .send_message_to_server(WsMessageType::SendText(client_id, text))
+      .await
+  }
+
+  pub async fn send_binary(
+    &self,
+    client_id: String,
+    payload: Vec<u8>,
+  ) -> Result<WsReply, String> {
+    self
+      .send_message_to_server(WsMessageType::SendBinary(client_id, payload))
+      .await
+  }
+
+  pub async fn send_ping(
+    &self,
+    client_id: String,
+    payload: Option<Vec<u8>>,
+  ) -> Result<WsReply, String> {
+    self
+      .send_message_to_server(WsMessageType::Ping(client_id, payload))
+      .await
+  }
+
+  pub async fn close(
+    &self,
+    client_id: String,
+    payload: Option<(WsStatusCode, Option<String>)>,
+  ) -> Result<WsReply, String> {
+    self
+      .send_message_to_server(WsMessageType::Close(client_id, payload))
+      .await
+  }
+
+  async fn send_message_to_server(
+    &self,
+    message: WsMessageType,
+  ) -> Result<WsReply, String> {
     let (tx, rx) = WsReply::get_channel();
 
     self
       .server_tx
-      .send(WsMessage::new(WsMessageType::SendText(client_id, text), tx))
+      .send(WsMessage::new(message, tx))
       .await
       .map_err(|error| format!("Failed to send message: {error}"))?;
 

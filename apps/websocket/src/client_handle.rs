@@ -1,6 +1,6 @@
 use tokio::sync::{mpsc, oneshot};
 
-use crate::ws_message::WsReply;
+use crate::{ws_message::WsReply, ws_status_code::WsStatusCode};
 
 pub struct ClientHandle {
   tx: mpsc::Sender<Command>,
@@ -38,4 +38,7 @@ impl Command {
 pub enum CommandType {
   SendText(String),
   SendBinary(Vec<u8>),
+  Close(Option<(WsStatusCode, Option<String>)>),
+  Ping(Option<Vec<u8>>),
+  Pong(Option<Vec<u8>>),
 }

@@ -1,4 +1,5 @@
 // https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
+#[derive(Debug)]
 pub enum WsStatusCode {
   /// 1000 indicates a normal closure, meaning that the purpose for which the
   /// connection was established has been fulfilled

@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
-use tokio::{net::TcpStream, sync::mpsc};
+use tokio::{
+  net::TcpStream,
+  sync::{mpsc, oneshot},
+};
 
 use crate::{
   client_handle::{ClientHandle, Command, CommandType},
   server_client::{Event, ServerClient},
-  ws_message::{
-    WsMessage,
-    WsMessageType::{NewClient, SendText},
-    WsReply,
-  },
+  ws_message::{WsMessage, WsMessageType, WsReply},
   ws_server_handle::WsServerHandle,
 };
 
@@ -56,28 +55,69 @@ impl Server {
 
   async fn handle_message(&mut self, message: WsMessage) {
     match message.message {
-      NewClient(client_id, socket) => {
+      WsMessageType::NewClient(client_id, socket) => {
         self.add_client(client_id, socket);
       }
-      SendText(client_id, payload) => {
-        let client_handle = self.client_handles.get(&client_id);
+      WsMessageType::SendText(client_id, payload) => {
+        self
+          .send_command_to_client(
+            client_id,
+            CommandType::SendText(payload),
+            message.reply_tx,
+          )
+          .await;
+      }
+      WsMessageType::SendBinary(client_id, payload) => {
+        self
+          .send_command_to_client(
+            client_id,
+            CommandType::SendBinary(payload),
+            message.reply_tx,
+          )
+          .await;
+      }
+      WsMessageType::Ping(client_id, payload) => {
+        self
+          .send_command_to_client(
+            client_id,
+            CommandType::Ping(payload),
+            message.reply_tx,
+          )
+          .await;
+      }
+      WsMessageType::Close(client_id, payload) => {
+        self
+          .send_command_to_client(
+            client_id,
+            CommandType::Close(payload),
+            message.reply_tx,
+          )
+          .await;
+      }
+    }
+  }
 
-        match client_handle {
-          Some(client_handle) => {
-            let command =
-              Command::new(CommandType::SendText(payload), message.reply_tx);
+  async fn send_command_to_client(
+    &mut self,
+    client_id: String,
+    command: CommandType,
+    reply_tx: oneshot::Sender<WsReply>,
+  ) {
+    let client_handle = self.client_handles.get(&client_id);
 
-            // TODO: error handling
-            let _ = client_handle.send_command(command).await;
-          }
-          None => {
-            let reply = WsReply::new(String::from("Client not found"));
-            let reply_result = message.reply_tx.send(reply);
+    match client_handle {
+      Some(client_handle) => {
+        let command = Command::new(command, reply_tx);
 
-            if reply_result.is_err() {
-              eprintln!("WebSocket Server failed to send reply");
-            }
-          }
+        // TODO: error handling
+        let _ = client_handle.send_command(command).await;
+      }
+      None => {
+        let reply = WsReply::new(String::from("Client not found"));
+        let reply_result = reply_tx.send(reply);
+
+        if reply_result.is_err() {
+          eprintln!("WebSocket Server failed to send reply");
         }
       }
     }
