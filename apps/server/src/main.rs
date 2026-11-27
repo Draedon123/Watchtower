@@ -3,8 +3,11 @@ use http::{body::Body, header::Headers};
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::sync::mpsc::Sender;
+use tokio::task::JoinSet;
 use watchtower_server::route::RouteResult;
-use websocket::server::Server as WebSocketServer;
+use websocket::handshake::Handshake;
+use websocket::server::{Server as WebSocketServer, ServerMessage};
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -18,22 +21,23 @@ use watchtower_server::{
 };
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
   let args: Vec<String> = env::args().collect();
   let config = Config::new(&args);
 
   if let RunMode::Help = config.mode {
     display_help_message();
 
-    return Ok(());
+    return;
   };
 
   let data = Arc::new(RwLock::new(Data::new()));
 
-  let mut http_server = HttpServer::new(&config)?;
-  let websocket_server = Arc::new(RwLock::new(WebSocketServer::new()));
+  let mut http_server = HttpServer::new(config.port).unwrap();
+  let mut websocket_server = WebSocketServer::new();
 
-  http_server.routes = Arc::new(get_routes(&config, &data, &websocket_server));
+  http_server.routes =
+    Arc::new(get_routes(&config, &data, websocket_server.sender.clone()));
 
   let default_response_headers =
     Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
@@ -52,9 +56,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
   });
 
-  http_server.start().await?;
+  let mut joinset = JoinSet::<()>::new();
 
-  Ok(())
+  joinset.spawn(async move {
+    http_server.start().await.unwrap();
+  });
+
+  joinset.spawn(async move {
+    websocket_server.start().await;
+  });
+
+  joinset.join_all().await;
 }
 
 fn authenticate(request: &ServerRequest, server_password: &str) -> bool {
@@ -85,7 +97,7 @@ fn respond_if_unauthenticated(
 fn get_routes(
   config: &Config,
   data: &Arc<RwLock<Data>>,
-  websocket_server: &Arc<RwLock<WebSocketServer>>,
+  websocket_server: Sender<ServerMessage>,
 ) -> Routes {
   let mut routes = Routes::new();
 
@@ -324,38 +336,41 @@ fn get_routes(
     },
   );
 
-  let websocket_server = websocket_server.clone();
+  let websocket_server = Arc::new(RwLock::new(websocket_server));
   routes.route(
     "/machine/[machine]/websocket",
     HttpMethod::Get,
-    move |request, response, connection| {
+    move |request, _, connection| {
       let websocket_server = websocket_server.clone();
 
       Box::pin(async move {
-        let result = websocket_server
+        let handshake = Handshake::from_request(&request.http_request).unwrap();
+        let key = handshake.key.clone();
+
+        println!("Waiting for lock");
+        websocket_server
           .write()
           .await
-          .add_client(&request.http_request, connection)
-          .await;
+          .send(ServerMessage::AddClient(handshake, connection))
+          .await
+          .unwrap();
 
-        match result {
-          Ok(handshake) => {
-            websocket_server.write().await.send_to_client(&handshake.key, String::from("test")).await;
-            websocket_server.write().await.close_client(&handshake.key).await;
-          }
-          Err((error, mut connection)) => {
-            {
-              response.status_code = HttpStatusCode::Status400;
-              response.headers.set_header("Connection", "close");
-              response.body = Body::Text(error);
-              if let Err(error) = connection.send_response(response).await {
-                eprintln!(
-                  "Failed to send response for failed WebSocket connection: {error}"
-                );
-              };
-            }
-          }
-        }
+        println!("Received lock");
+        websocket_server
+          .write()
+          .await
+          .send(ServerMessage::SendToClient(
+            key.clone(),
+            String::from("test"),
+          ))
+          .await
+          .unwrap();
+        websocket_server
+          .write()
+          .await
+          .send(ServerMessage::Close(key))
+          .await
+          .unwrap();
 
         RouteResult::TakeOver
       })

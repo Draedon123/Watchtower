@@ -2,11 +2,13 @@ use config_parser::parse_args;
 
 const DEFAULT_PORT: u16 = 9824;
 
+#[derive(Clone)]
 pub enum RunMode {
   Normal,
   Help,
 }
 
+#[derive(Clone)]
 pub struct Config {
   pub port: u16,
   pub password: String,

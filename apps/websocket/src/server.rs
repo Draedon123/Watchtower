@@ -2,53 +2,44 @@ use std::collections::HashMap;
 
 use http::{
   header::Headers, http_connection::HttpConnection,
-  http_status_codes::HttpStatusCode, request::Request, response::Response,
+  http_status_codes::HttpStatusCode, response::Response,
 };
+use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{
-  client::{Client, Open},
-  frame::Frame,
-  handshake::Handshake,
-  utils::get_accept_key,
-  websocket_status_code::WebSocketStatusCode,
+  frame::Frame, handshake::Handshake, server_client::ServerClient,
+  utils::get_accept_key, websocket_status_code::WebSocketStatusCode,
 };
 
 pub struct Server {
-  pub clients: HashMap<String, Client<Open>>,
+  clients: HashMap<String, ServerClient>,
+  pub sender: Sender<ServerMessage>,
+  receiver: Receiver<ServerMessage>,
 }
 
 impl Server {
   pub fn new() -> Self {
+    let (sender, receiver) = mpsc::channel::<ServerMessage>(8);
+
     Self {
       clients: HashMap::new(),
+      sender,
+      receiver,
     }
   }
 
-  #[allow(clippy::result_large_err)]
   pub async fn add_client(
     &mut self,
-    request: &Request,
+    handshake: Handshake,
     mut connection: HttpConnection,
-  ) -> Result<Handshake, (String, HttpConnection)> {
-    let handshake = Handshake::from_request(request);
+  ) -> Result<Handshake, String> {
+    self.accept_handshake(&mut connection, &handshake).await?;
 
-    match handshake {
-      Ok(handshake) => {
-        let result = self.accept_handshake(&mut connection, &handshake).await;
+    let stream = connection.into_stream();
+    let client = ServerClient::new(stream, self.sender.clone());
+    self.clients.insert(handshake.key.clone(), client);
 
-        if let Err(error) = result {
-          return Err((error, connection));
-        };
-
-        let stream = connection.into_stream();
-        self
-          .clients
-          .insert(handshake.key.clone(), Client::new_open(stream));
-
-        Ok(handshake)
-      }
-      Err(error) => Err((format!("Rejected handshake: {error}"), connection)),
-    }
+    Ok(handshake)
   }
 
   async fn accept_handshake(
@@ -72,19 +63,40 @@ impl Server {
   pub async fn send_to_client(&mut self, client_key: &str, message: String) {
     if let Some(client) = self.clients.get_mut(client_key) {
       let frame = Frame::from_string(message, None);
-      if let Err(error) = client.send(frame).await {
+      if let Err(error) = frame.write_to_buffer(&mut client.socket).await {
         eprintln!("Failed to send frame to client: {error}");
       }
     }
   }
 
   pub async fn close_client(&mut self, client_key: &str) {
-    if let Some(client) = self.clients.remove(client_key)
-      && let Err((error, _)) = client
-        .close(Some((WebSocketStatusCode::Normal, None)), None)
-        .await
+    if let Some(mut client) = self.clients.remove(client_key)
+      && let Err(error) =
+        Frame::close(Some((WebSocketStatusCode::Normal, None)), None)
+          .unwrap()
+          .write_to_buffer(&mut client.socket)
+          .await
     {
       eprintln!("Failed to close client: {}", error);
+    }
+  }
+
+  pub async fn start(&mut self) {
+    while let Some(message) = self.receiver.recv().await {
+      match message {
+        ServerMessage::Frame(frame) => {
+          println!("Received frame: {:#?}", frame);
+        }
+        ServerMessage::AddClient(handshake, connection) => {
+          self.add_client(handshake, connection).await.unwrap();
+        }
+        ServerMessage::SendToClient(client_key, message) => {
+          self.send_to_client(&client_key, message).await;
+        }
+        ServerMessage::Close(client_key) => {
+          self.close_client(&client_key).await;
+        }
+      }
     }
   }
 }
@@ -93,4 +105,12 @@ impl Default for Server {
   fn default() -> Self {
     Self::new()
   }
+}
+
+#[derive(Debug)]
+pub enum ServerMessage {
+  Frame(Frame),
+  AddClient(Handshake, HttpConnection),
+  SendToClient(String, String),
+  Close(String),
 }

@@ -8,6 +8,7 @@ use tokio::{
 
 use crate::{request::Request, response::Response};
 
+#[derive(Debug)]
 pub struct HttpConnection {
   reader: BufReader<OwnedReadHalf>,
   writer: BufWriter<OwnedWriteHalf>,

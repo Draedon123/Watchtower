@@ -6,6 +6,7 @@ use crate::http_parser::parse_http_headers_and_content;
 use misc::uri::Uri;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt};
 
+#[derive(Debug)]
 pub struct Request {
   pub method: HttpMethod,
   pub uri: Uri,

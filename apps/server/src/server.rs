@@ -1,7 +1,4 @@
-use crate::{
-  config::Config,
-  route::{RouteResult, Routes},
-};
+use crate::route::{RouteResult, Routes};
 use http::{
   header::Headers, http_connection::HttpConnection, request::Request,
   response::Response,
@@ -20,11 +17,11 @@ pub struct ServerRequest {
   pub request_id: u64,
 }
 
-pub struct Server<'a> {
+pub struct Server {
   pub default_response_headers: Headers,
   pub routes: Arc<Routes>,
 
-  config: &'a Config,
+  port: u16,
   on_connection_close: Option<OnConnectionClose>,
   request_id: u64,
 }
@@ -33,11 +30,11 @@ pub type OnConnectionCloseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type OnConnectionClose =
   Arc<dyn Fn(HttpConnection, u64) -> OnConnectionCloseFuture + Send + Sync>;
 
-impl<'a> Server<'a> {
-  pub fn new(config: &'a Config) -> Result<Self, Box<dyn std::error::Error>> {
+impl Server {
+  pub fn new(port: u16) -> Result<Self, Box<dyn std::error::Error>> {
     let server = Server {
       routes: Arc::new(Routes::new()),
-      config,
+      port,
       default_response_headers: Headers::new(),
       on_connection_close: None,
       request_id: 0,
@@ -48,7 +45,7 @@ impl<'a> Server<'a> {
 
   /// Starts listening on the supplied port. Also blocks the thread.
   pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-    let server_address = format!("127.0.0.1:{}", self.config.port);
+    let server_address = format!("127.0.0.1:{}", self.port);
 
     let listener = TcpListener::bind(&server_address).await?;
     let mut connections = JoinSet::new();
