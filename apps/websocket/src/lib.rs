@@ -2,6 +2,7 @@ pub mod client;
 pub mod frame;
 pub mod handshake;
 pub mod server;
+pub mod server_client;
 pub mod utils;
 pub mod ws_message;
 pub mod ws_server_handle;

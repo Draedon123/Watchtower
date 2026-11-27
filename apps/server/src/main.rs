@@ -336,14 +336,15 @@ fn get_routes(
   );
 
   let websocket_server = websocket_server.clone();
-  routes.route("/machine/[machine]/websocket", HttpMethod::Get, move |request, response, mut connection| {
+  routes.route("/machine/[machine]/websocket", HttpMethod::Get, move |request, response, connection| {
     let websocket_server = websocket_server.clone();
 
     Box::pin(async move {
-      let result = websocket_server.handle_http_request(&request.http_request, &mut connection).await;
+      let handle = websocket_server.get_handle(request.slugs.get("machine").expect("[machine] slug is present in route path").clone());
+      let result = handle.handle_http_request(&request.http_request, connection).await;
 
       match result {
-        Ok(handle) => {
+        Ok(_) => {
           println!("Accepted connection");
 
           match handle.send_text(String::from("Test from http server")).await {
@@ -351,12 +352,12 @@ fn get_routes(
             Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
           };
         }
-        Err(error) => {
+        Err((error, mut connection)) => {
           response.status_code = HttpStatusCode::Status400;
           response.headers.set_header("Connection", "close");
           response.body = Body::Text(error);
 
-          if let Err(error) = connection.send_response(response).await {
+          if let Err(error) = connection.as_mut().send_response(response).await {
             eprintln!("Failed to send response for failed WebSocket connection: {error}");
           };
         }

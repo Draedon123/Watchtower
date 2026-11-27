@@ -1,6 +1,6 @@
-use tokio::sync::oneshot;
+use std::fmt::Display;
 
-pub type WsReply = String;
+use tokio::{net::TcpStream, sync::oneshot};
 
 #[derive(Debug)]
 pub struct WsMessage {
@@ -19,6 +19,29 @@ impl WsMessage {
 
 #[derive(Debug)]
 pub enum WsMessageType {
+  /// (Client ID, Socket)
+  NewClient(String, TcpStream),
   /// (Client ID, Message)
   SendText(String, String),
+}
+
+#[derive(Debug)]
+pub struct WsReply {
+  reply: String,
+}
+
+impl WsReply {
+  pub fn new(reply: String) -> Self {
+    Self { reply }
+  }
+
+  pub fn get_channel() -> (oneshot::Sender<Self>, oneshot::Receiver<Self>) {
+    oneshot::channel::<Self>()
+  }
+}
+
+impl Display for WsReply {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    self.reply.fmt(f)
+  }
 }
