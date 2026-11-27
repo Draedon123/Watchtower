@@ -1,5 +1,5 @@
 // https://datatracker.ietf.org/doc/html/rfc6455#section-7.4.1
-pub enum WebSocketStatusCode {
+pub enum WsStatusCode {
   /// 1000 indicates a normal closure, meaning that the purpose for which the
   /// connection was established has been fulfilled
   Normal,
@@ -72,7 +72,7 @@ pub enum WebSocketStatusCode {
   Other(u16),
 }
 
-impl WebSocketStatusCode {
+impl WsStatusCode {
   pub fn from_u16(code: u16) -> Self {
     match code {
       1000 => Self::Normal,

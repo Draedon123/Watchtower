@@ -3,11 +3,9 @@ use http::{body::Body, header::Headers};
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::sync::mpsc::Sender;
 use tokio::task::JoinSet;
 use watchtower_server::route::RouteResult;
-use websocket::handshake::Handshake;
-use websocket::server::{Server as WebSocketServer, ServerMessage};
+use websocket::server::Server as WsServer;
 
 use http::http_method::HttpMethod;
 use http::http_status_codes::HttpStatusCode;
@@ -34,10 +32,10 @@ async fn main() {
   let data = Arc::new(RwLock::new(Data::new()));
 
   let mut http_server = HttpServer::new(config.port).unwrap();
-  let mut websocket_server = WebSocketServer::new();
+  let websocket_server = Arc::new(WsServer::new());
 
   http_server.routes =
-    Arc::new(get_routes(&config, &data, websocket_server.sender.clone()));
+    Arc::new(get_routes(&config, &data, websocket_server.clone()));
 
   let default_response_headers =
     Headers::from(vec![("Access-Control-Allow-Origin", "*")]);
@@ -62,9 +60,9 @@ async fn main() {
     http_server.start().await.unwrap();
   });
 
-  joinset.spawn(async move {
-    websocket_server.start().await;
-  });
+  // joinset.spawn(async move {
+  //   websocket_server.start().await;
+  // });
 
   joinset.join_all().await;
 }
@@ -97,7 +95,7 @@ fn respond_if_unauthenticated(
 fn get_routes(
   config: &Config,
   data: &Arc<RwLock<Data>>,
-  websocket_server: Sender<ServerMessage>,
+  websocket_server: Arc<WsServer>,
 ) -> Routes {
   let mut routes = Routes::new();
 
@@ -336,41 +334,33 @@ fn get_routes(
     },
   );
 
-  let websocket_server = Arc::new(RwLock::new(websocket_server));
+  let websocket_server = websocket_server.clone();
   routes.route(
     "/machine/[machine]/websocket",
     HttpMethod::Get,
-    move |request, _, connection| {
+    move |request, response, mut connection| {
       let websocket_server = websocket_server.clone();
 
       Box::pin(async move {
-        let handshake = Handshake::from_request(&request.http_request).unwrap();
-        let key = handshake.key.clone();
+        let result = websocket_server
+          .handle_http_request(&request.http_request, &mut connection).await;
 
-        println!("Waiting for lock");
-        websocket_server
-          .write()
-          .await
-          .send(ServerMessage::AddClient(handshake, connection))
-          .await
-          .unwrap();
+        match result {
+          Ok(handle) => {
+            println!("Accepted connection");
+          }
+          Err(error) => {
+            response.status_code = HttpStatusCode::Status400;
+            response.headers.set_header("Connection", "close");
+            response.body = Body::Text(error);
 
-        println!("Received lock");
-        websocket_server
-          .write()
-          .await
-          .send(ServerMessage::SendToClient(
-            key.clone(),
-            String::from("test"),
-          ))
-          .await
-          .unwrap();
-        websocket_server
-          .write()
-          .await
-          .send(ServerMessage::Close(key))
-          .await
-          .unwrap();
+            if let Err(error) = connection.send_response(response).await {
+              eprintln!(
+                "Failed to send response for failed WebSocket connection: {error}"
+              );
+            };
+          }
+        }
 
         RouteResult::TakeOver
       })

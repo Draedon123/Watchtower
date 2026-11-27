@@ -9,8 +9,7 @@ use misc::uri::Uri;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 
 use crate::{
-  frame::Frame, utils::get_accept_key,
-  websocket_status_code::WebSocketStatusCode,
+  frame::Frame, utils::get_accept_key, ws_status_code::WsStatusCode,
 };
 
 pub struct Connecting;
@@ -149,7 +148,7 @@ impl Client<Open> {
 
   pub async fn close(
     self,
-    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
+    status_code_and_reason: Option<(WsStatusCode, Option<String>)>,
     mask: Option<u32>,
   ) -> Result<Client<Closing>, (String, Client<Closed>)> {
     let client = Client {
@@ -164,7 +163,7 @@ impl Client<Open> {
 impl Client<Closing> {
   async fn close(
     mut self,
-    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
+    status_code_and_reason: Option<(WsStatusCode, Option<String>)>,
     mask: Option<u32>,
   ) -> Result<Self, (String, Client<Closed>)> {
     // TODO: allow payloads and masks

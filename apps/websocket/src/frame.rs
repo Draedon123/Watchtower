@@ -1,7 +1,7 @@
 use crypto::bit_vec::BitVec;
 use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWriteExt};
 
-use crate::websocket_status_code::WebSocketStatusCode;
+use crate::ws_status_code::WsStatusCode;
 
 #[derive(Debug, PartialEq)]
 pub struct Frame {
@@ -99,7 +99,7 @@ impl Frame {
 
   // TODO: non-string errors
   pub fn close(
-    status_code_and_reason: Option<(WebSocketStatusCode, Option<String>)>,
+    status_code_and_reason: Option<(WsStatusCode, Option<String>)>,
     mask: Option<u32>,
   ) -> Result<Self, String> {
     if let Some((_, Some(message))) = &status_code_and_reason
@@ -593,7 +593,7 @@ mod tests {
   #[test]
   fn encode_unmasked_close() {
     let frame = Frame::close(
-      Some((WebSocketStatusCode::Normal, Some(String::from("Hello")))),
+      Some((WsStatusCode::Normal, Some(String::from("Hello")))),
       None,
     )
     .expect("Message is less than 124 bytes");
@@ -613,7 +613,7 @@ mod tests {
       .expect("Provided buffer is valid");
 
     let expected_frame = Frame::close(
-      Some((WebSocketStatusCode::Normal, Some(String::from("Hello")))),
+      Some((WsStatusCode::Normal, Some(String::from("Hello")))),
       None,
     )
     .expect("Message is less than 124 bytes");
