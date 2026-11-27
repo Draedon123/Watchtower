@@ -128,8 +128,6 @@ impl Server {
         None => false,
       };
 
-      println!("Received {request_method} request for {request_path}");
-
       let routes = &routes.routes;
       let route = routes.iter().find(|route| {
         if route.method != request_method {
