@@ -1,5 +1,5 @@
 use crypto::bit_vec::BitVec;
-use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 
 use crate::ws_status_code::WsStatusCode;
 
@@ -9,9 +9,9 @@ pub struct Frame {
   rsv1: bool,
   rsv2: bool,
   rsv3: bool,
-  op_code: OpCode,
+  pub op_code: OpCode,
   mask: Option<u32>,
-  payload: Vec<u8>,
+  pub payload: Vec<u8>,
 }
 
 impl Frame {
@@ -213,7 +213,7 @@ impl Frame {
 
   pub async fn from_buffer<R>(buffer: &mut R) -> Result<Frame, String>
   where
-    R: AsyncBufRead + Unpin,
+    R: AsyncRead + Unpin,
   {
     let mut first_two_bytes = [0, 0];
     buffer

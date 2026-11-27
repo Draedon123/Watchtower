@@ -41,13 +41,29 @@ impl Server {
   /// Blocks thread
   pub async fn start(&mut self) {
     loop {
-      match self.handle_rx.recv().await {
-        Some(message) => {
-          self.handle_message(message).await;
+      tokio::select! {
+        message = self.handle_rx.recv() => {
+          match message {
+            Some(message) => {
+              self.handle_message(message).await;
+            }
+            None => {
+              println!("WebSocket Server stopped");
+              break;
+            }
+          }
         }
-        None => {
-          println!("WebSocket Server stopped");
-          break;
+
+        event = self.event_rx.recv() => {
+          match event {
+            Some(event) => {
+              self.handle_event(event).await;
+            }
+            None => {
+              println!("WebSocket Server stopped");
+              break;
+            }
+          }
         }
       }
     }
@@ -95,6 +111,10 @@ impl Server {
           .await;
       }
     }
+  }
+
+  async fn handle_event(&self, event: Event) {
+    println!("Received event from client: {:#?}", event);
   }
 
   async fn send_command_to_client(
