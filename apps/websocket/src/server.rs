@@ -2,20 +2,22 @@ use http::{
   header::Headers, http_connection::HttpConnection,
   http_status_codes::HttpStatusCode, request::Request, response::Response,
 };
+use tokio::sync::mpsc;
 
 use crate::{
-  handshake::Handshake, utils::get_accept_key, ws_server_handle::WsServerHandle,
+  handshake::Handshake, utils::get_accept_key, ws_message::WsMessage,
+  ws_server_handle::WsServerHandle,
 };
 
 pub struct Server {
-  handle: WsServerHandle,
+  handle_tx: mpsc::Sender<WsMessage>,
 }
 
 impl Server {
-  pub fn new() -> Self {
-    Self {
-      handle: WsServerHandle::new(),
-    }
+  pub fn new() -> (Self, mpsc::Receiver<WsMessage>) {
+    let (tx, handle_rx) = mpsc::channel::<WsMessage>(128);
+
+    (Self { handle_tx: tx }, handle_rx)
   }
 
   pub async fn handle_http_request(
@@ -26,7 +28,33 @@ impl Server {
     let handshake = Handshake::from_request(request)?;
     self.accept_handshake(connection, &handshake).await?;
 
-    Ok(self.handle.clone())
+    // TOOD: protect against duplicate keys from malicious clients
+    Ok(WsServerHandle::new(self.handle_tx.clone(), handshake.key))
+  }
+
+  /// Blocks thread. Must receive the `handle_rx` that was returned from `Server::new`.
+  pub async fn start(&self, mut handle_rx: mpsc::Receiver<WsMessage>) {
+    loop {
+      match handle_rx.recv().await {
+        Some(message) => {
+          println!(
+            "WebSocket Server received message from HTTP Server: {:#?}",
+            message.message
+          );
+
+          if let Err(error) = message
+            .reply_tx
+            .send(String::from("Hello from WebSocket Server"))
+          {
+            eprintln!("WebSocket Server failed to send reply: {error}");
+          };
+        }
+        None => {
+          println!("WebSocket Server stopped");
+          break;
+        }
+      }
+    }
   }
 
   async fn accept_handshake(
@@ -45,11 +73,5 @@ impl Server {
     ]);
 
     connection.send_response(&mut response).await
-  }
-}
-
-impl Default for Server {
-  fn default() -> Self {
-    Self::new()
   }
 }

@@ -32,7 +32,8 @@ async fn main() {
   let data = Arc::new(RwLock::new(Data::new()));
 
   let mut http_server = HttpServer::new(config.port).unwrap();
-  let websocket_server = Arc::new(WsServer::new());
+  let (websocket_server, handle_rx) = WsServer::new();
+  let websocket_server = Arc::new(websocket_server);
 
   http_server.routes =
     Arc::new(get_routes(&config, &data, websocket_server.clone()));
@@ -60,9 +61,9 @@ async fn main() {
     http_server.start().await.unwrap();
   });
 
-  // joinset.spawn(async move {
-  //   websocket_server.start().await;
-  // });
+  joinset.spawn(async move {
+    websocket_server.start(handle_rx).await;
+  });
 
   joinset.join_all().await;
 }
@@ -335,37 +336,35 @@ fn get_routes(
   );
 
   let websocket_server = websocket_server.clone();
-  routes.route(
-    "/machine/[machine]/websocket",
-    HttpMethod::Get,
-    move |request, response, mut connection| {
-      let websocket_server = websocket_server.clone();
+  routes.route("/machine/[machine]/websocket", HttpMethod::Get, move |request, response, mut connection| {
+    let websocket_server = websocket_server.clone();
 
-      Box::pin(async move {
-        let result = websocket_server
-          .handle_http_request(&request.http_request, &mut connection).await;
+    Box::pin(async move {
+      let result = websocket_server.handle_http_request(&request.http_request, &mut connection).await;
 
-        match result {
-          Ok(handle) => {
-            println!("Accepted connection");
-          }
-          Err(error) => {
-            response.status_code = HttpStatusCode::Status400;
-            response.headers.set_header("Connection", "close");
-            response.body = Body::Text(error);
+      match result {
+        Ok(handle) => {
+          println!("Accepted connection");
 
-            if let Err(error) = connection.send_response(response).await {
-              eprintln!(
-                "Failed to send response for failed WebSocket connection: {error}"
-              );
-            };
-          }
+          match handle.send_text(String::from("Test from http server")).await {
+            Ok(reply) => println!("HTTP Server received reply from WebSocket Server: {reply}"),
+            Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
+          };
         }
+        Err(error) => {
+          response.status_code = HttpStatusCode::Status400;
+          response.headers.set_header("Connection", "close");
+          response.body = Body::Text(error);
 
-        RouteResult::TakeOver
-      })
-    },
-  );
+          if let Err(error) = connection.send_response(response).await {
+            eprintln!("Failed to send response for failed WebSocket connection: {error}");
+          };
+        }
+      }
+
+      RouteResult::TakeOver
+    })
+  });
 
   routes
 }
