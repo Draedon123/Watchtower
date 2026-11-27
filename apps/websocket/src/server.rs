@@ -64,19 +64,18 @@ impl Server {
 
         match client_handle {
           Some(client_handle) => {
-            let command = Command::new(
-              CommandType::Send(payload.into_bytes()),
-              message.reply_tx,
-            );
+            let command =
+              Command::new(CommandType::SendText(payload), message.reply_tx);
 
-            client_handle.send_command(command).await;
+            // TODO: error handling
+            let _ = client_handle.send_command(command).await;
           }
           None => {
             let reply = WsReply::new(String::from("Client not found"));
             let reply_result = message.reply_tx.send(reply);
 
-            if let Err(error) = reply_result {
-              eprintln!("WebSocket Server failed to send reply: {error}");
+            if reply_result.is_err() {
+              eprintln!("WebSocket Server failed to send reply");
             }
           }
         }

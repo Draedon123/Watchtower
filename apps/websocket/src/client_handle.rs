@@ -36,5 +36,6 @@ impl Command {
 
 #[derive(Debug)]
 pub enum CommandType {
-  Send(Vec<u8>),
+  SendText(String),
+  SendBinary(Vec<u8>),
 }
