@@ -19,6 +19,7 @@ pub struct ServerClient {
   writer: OwnedWriteHalf,
   command_rx: mpsc::Receiver<Command>,
   event_tx: mpsc::Sender<Event>,
+  client_id: String,
 }
 
 impl ServerClient {
@@ -26,6 +27,7 @@ impl ServerClient {
     socket: TcpStream,
     command_rx: mpsc::Receiver<Command>,
     event_tx: mpsc::Sender<Event>,
+    client_id: String,
   ) -> Self {
     let (reader, writer) = socket.into_split();
 
@@ -34,6 +36,7 @@ impl ServerClient {
       writer,
       command_rx,
       event_tx,
+      client_id,
     }
   }
 
@@ -49,8 +52,10 @@ impl ServerClient {
             Ok(frame) => {
               self.send_frame(frame).await;
             }
+            // TODO: differentiate between "successful failures"
             Err(error) => {
               eprintln!("Received invalid frame from client: {error}");
+              break;
             }
           }
         }
@@ -84,10 +89,7 @@ impl ServerClient {
         let frame = Frame::close(payload, None);
 
         self.write_frame(frame, command.reply_tx).await;
-
-        // TODO: handle shutdown properly
-
-        self.writer.shutdown().await.unwrap();
+        self.close().await;
       }
     }
   }
@@ -124,7 +126,7 @@ impl ServerClient {
 
         match data {
           Ok(data) => {
-            let event = Event::Text(data);
+            let event = EventType::Text(data);
             self.send_event(event).await;
           }
           Err(error) => {
@@ -133,15 +135,15 @@ impl ServerClient {
         }
       }
       OpCode::Binary => {
-        let event = Event::Binary(frame.payload);
+        let event = EventType::Binary(frame.payload);
         self.send_event(event).await;
       }
       OpCode::Ping => {
-        let event = Event::Ping(frame.payload);
+        let event = EventType::Ping(frame.payload);
         self.send_event(event).await;
       }
       OpCode::Pong => {
-        let event = Event::Pong(frame.payload);
+        let event = EventType::Pong(frame.payload);
         self.send_event(event).await;
       }
       OpCode::Close => {
@@ -155,28 +157,33 @@ impl ServerClient {
             let reason = String::from_utf8(frame.payload[2..].to_vec());
 
             match reason {
-              Ok(reason) => Event::Close(status_code, Some(reason)),
+              Ok(reason) => EventType::Close(status_code, Some(reason)),
               Err(error) => {
                 eprintln!("Received invalid utf8 from client: {error}");
-                Event::Close(status_code, None)
+                EventType::Close(status_code, None)
               }
             }
           } else {
-            Event::Close(status_code, None)
+            EventType::Close(status_code, None)
           }
         } else {
-          Event::Close(WsStatusCode::NoStatus, None)
+          EventType::Close(WsStatusCode::NoStatus, None)
         };
 
         self.send_event(event).await;
-        self.writer.shutdown().await.unwrap();
+        self.close().await;
       }
       _ => todo!(),
     }
   }
 
-  async fn send_event(&self, event: Event) {
-    if self.event_tx.send(event).await.is_err() {
+  async fn send_event(&self, event: EventType) {
+    if self
+      .event_tx
+      .send(Event::new(event, self.client_id.clone()))
+      .await
+      .is_err()
+    {
       eprintln!("Failed to send event");
     }
   }
@@ -186,10 +193,26 @@ impl ServerClient {
       eprintln!("Failed to send reply");
     }
   }
+
+  async fn close(&mut self) {
+    self.writer.shutdown().await.unwrap();
+  }
 }
 
-#[derive(Debug)]
-pub enum Event {
+#[derive(Debug, Clone)]
+pub struct Event {
+  pub event: EventType,
+  pub client_id: String,
+}
+
+impl Event {
+  pub fn new(event: EventType, client_id: String) -> Self {
+    Self { event, client_id }
+  }
+}
+
+#[derive(Debug, Clone)]
+pub enum EventType {
   Text(String),
   Binary(Vec<u8>),
   Ping(Vec<u8>),

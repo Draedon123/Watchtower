@@ -2,23 +2,30 @@ use http::{
   header::Headers, http_connection::HttpConnection,
   http_status_codes::HttpStatusCode, request::Request,
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
   handshake::Handshake,
+  server_client::Event,
   utils::get_accept_key,
   ws_message::{WsMessage, WsMessageType, WsReply},
   ws_status_code::WsStatusCode,
 };
 
-#[derive(Clone)]
 pub struct WsServerHandle {
   server_tx: mpsc::Sender<WsMessage>,
+  request_tx: mpsc::Sender<ClientRequest>,
 }
 
 impl WsServerHandle {
-  pub fn new(server_tx: mpsc::Sender<WsMessage>) -> Self {
-    Self { server_tx }
+  pub fn new(
+    server_tx: mpsc::Sender<WsMessage>,
+    request_tx: mpsc::Sender<ClientRequest>,
+  ) -> Self {
+    Self {
+      server_tx,
+      request_tx,
+    }
   }
 
   pub async fn handle_http_request(
@@ -127,4 +134,34 @@ impl WsServerHandle {
 
     connection.send_response(&mut response).await
   }
+
+  pub async fn get_event_receiver(
+    &self,
+    client_id: String,
+  ) -> Option<mpsc::Receiver<Event>> {
+    let (reply_tx, reply_rx) =
+      oneshot::channel::<Option<mpsc::Receiver<Event>>>();
+    let request = ClientRequest {
+      client_id,
+      reply_tx,
+    };
+
+    if let Err(error) = self.request_tx.send(request).await {
+      eprintln!("Failed to send client request: {error}");
+      return None;
+    };
+
+    match reply_rx.await {
+      Ok(receiver) => receiver,
+      Err(_) => {
+        eprintln!("Sender dropped");
+        None
+      }
+    }
+  }
+}
+
+pub struct ClientRequest {
+  pub client_id: String,
+  pub reply_tx: oneshot::Sender<Option<mpsc::Receiver<Event>>>,
 }

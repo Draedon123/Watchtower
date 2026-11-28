@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use tokio::task::JoinSet;
 use watchtower_server::route::RouteResult;
 use websocket::server::Server as WsServer;
+use websocket::server_client::EventType;
 use websocket::ws_server_handle::WsServerHandle;
 
 use http::http_method::HttpMethod;
@@ -338,19 +339,37 @@ fn get_routes(
 
   let handle = handle.clone();
   routes.route("/machine/[machine]/websocket", HttpMethod::Get, move |request, response, connection| {
-    let handle = handle.clone();
+    let server_handle = handle.clone();
 
     Box::pin(async move {
       let machine = request.slugs.get("machine").expect("[machine] slug is present in route path");
-      let result = handle.handle_http_request(machine.clone(), &request.http_request, connection).await;
+      let result = server_handle.handle_http_request(machine.clone(), &request.http_request, connection).await;
 
       match result {
         Ok(_) => {
-          println!("Accepted connection");
+          let machine_handle = server_handle.get_event_receiver(machine.clone()).await;
 
-          match handle.send_text(machine.clone(), String::from("Test from http server")).await {
+          match server_handle.send_text(machine.clone(), String::from("Hello from http server")).await {
             Ok(reply) => println!("HTTP Server received reply from WebSocket Server: {reply}"),
             Err(error) => eprintln!("HTTP Server received no reply from WebSocket Server: {error}"),
+          };
+
+          let machine = machine.clone();
+
+          if let Some(mut handle) = machine_handle {
+            tokio::spawn(async move {
+              while let Some(event) = handle.recv().await {
+                match event.event {
+                  EventType::Close(_,_) => {
+                    break;
+                  },
+                  EventType::Text(message) => {
+                    let _ = server_handle.send_text(machine.clone(), format!("Server received: \"{message}\"")).await;
+                  },
+                  _ => {}
+                }
+              }
+            });
           };
         }
         Err((error, mut connection)) => {
